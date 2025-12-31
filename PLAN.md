@@ -2944,7 +2944,11 @@ export function startPoolMonitoring(intervalMs: number = 60000) {
 
 ---
 
-## Phase 9: Tool Robustness & Memory Tools Enhancement
+## Phase 9: Tool Robustness & Memory Tools Enhancement ✅ COMPLETE
+
+> **Status**: Implemented and merged to main (2025-12-31)
+> **Tests**: 62 new tests (phase9-tag-parsing: 18, phase9-memory-tools: 22, phase9-memory-processing: 14, subagent: 8)
+> **Commits**: `7d928c6` (implementation), `fd38704` (merge to main)
 
 > **⚠️ AGENT CONTRIBUTION NOTICE**
 >
@@ -3031,10 +3035,10 @@ function parseRememberTags(content: string): Array<{scope: string, category: str
 ```
 
 **Checklist:**
-- [ ] **9.2.1.1** Create `parseRememberTags()` function
-- [ ] **9.2.1.2** Update `extractMemoriesFromResponse()` to use new parser
-- [ ] **9.2.1.3** Add tests for various tag formats
-- [ ] **9.2.1.4** Add warning log for malformed tags
+- [x] **9.2.1.1** Create `parseRememberTags()` function
+- [x] **9.2.1.2** Update `extractMemoriesFromResponse()` to use new parser
+- [x] **9.2.1.3** Add tests for various tag formats
+- [x] **9.2.1.4** Add warning log for malformed tags
 
 ---
 
@@ -3054,10 +3058,10 @@ function stripRememberTags(content: string): string {
 ```
 
 **Checklist:**
-- [ ] **9.2.2.1** Create `stripRememberTags()` function
-- [ ] **9.2.2.2** Integrate into SSE stream processing (lines 359-485)
-- [ ] **9.2.2.3** Handle streaming chunks that split tags
-- [ ] **9.2.2.4** Add tests verifying tags don't appear in output
+- [x] **9.2.2.1** Create `stripRememberTags()` function
+- [x] **9.2.2.2** Integrate into SSE stream processing (lines 359-485)
+- [x] **9.2.2.3** Handle streaming chunks that split tags
+- [x] **9.2.2.4** Add tests verifying tags don't appear in output
 
 ---
 
@@ -3185,12 +3189,12 @@ async delete(memoryId: string): Promise<boolean> {
 **File:** `src/agents/index.ts` - Register the memoryAgent
 
 **Checklist:**
-- [ ] **9.2.3.1** Create `src/agents/memory.agent.ts`
-- [ ] **9.2.3.2** Add `deleteMemory()` to database.ts
-- [ ] **9.2.3.3** Add `delete()` to MemoryService
-- [ ] **9.2.3.4** Register memoryAgent in agents/index.ts
-- [ ] **9.2.3.5** Add tests for all three tools
-- [ ] **9.2.3.6** Update instruction.section.ts to mention tools
+- [x] **9.2.3.1** Create `src/agents/memory.agent.ts`
+- [x] **9.2.3.2** Add `deleteMemory()` to database.ts
+- [x] **9.2.3.3** Add `delete()` to MemoryService
+- [x] **9.2.3.4** Register memoryAgent in agents/index.ts
+- [x] **9.2.3.5** Add tests for all three tools
+- [x] **9.2.3.6** Update instruction.section.ts to mention tools
 
 ---
 
@@ -3231,11 +3235,11 @@ reviewAllowedTools: ['Read', 'Glob', 'Grep', 'LSP', 'ccr_recall'],
 ```
 
 **Checklist:**
-- [ ] **9.2.4.1** Add `buildSubAgentContext()` function
-- [ ] **9.2.4.2** Update spawn_subagent handler to use it
-- [ ] **9.2.4.3** Add ccr_recall to research/review allowed tools
-- [ ] **9.2.4.4** Add full memory tools to code agent allowed tools
-- [ ] **9.2.4.5** Add tests for sub-agent memory inheritance
+- [x] **9.2.4.1** Add `buildSubAgentContext()` function
+- [x] **9.2.4.2** Update spawn_subagent handler to use it
+- [x] **9.2.4.3** Add ccr_recall to research/review allowed tools
+- [x] **9.2.4.4** Add full memory tools to code agent allowed tools
+- [x] **9.2.4.5** Add tests for sub-agent memory inheritance
 
 ---
 
@@ -3265,18 +3269,18 @@ reviewAllowedTools: ['Read', 'Glob', 'Grep', 'LSP', 'ccr_recall'],
 
 ### 9.5 Testing Checklist
 
-- [ ] `<remember>` tags no longer visible in user output
-- [ ] Tags with reversed attribute order parse correctly
-- [ ] Tags with single quotes parse correctly
-- [ ] Extra whitespace in tags is handled
-- [ ] `ccr_remember` tool saves memory and returns confirmation with ID
-- [ ] `ccr_recall` tool queries memories with relevance scores
-- [ ] `ccr_forget` tool deletes memory by ID and confirms
-- [ ] Sub-agents receive injected memory context in system prompt
-- [ ] Research sub-agents can only use `ccr_recall`
-- [ ] Code sub-agents have full memory tool access
-- [ ] Review sub-agents can only use `ccr_recall`
-- [ ] Memory tools don't overload context (compact descriptions)
+- [x] `<remember>` tags no longer visible in user output
+- [x] Tags with reversed attribute order parse correctly
+- [x] Tags with single quotes parse correctly
+- [x] Extra whitespace in tags is handled
+- [x] `ccr_remember` tool saves memory and returns confirmation with ID
+- [x] `ccr_recall` tool queries memories with relevance scores
+- [x] `ccr_forget` tool deletes memory by ID and confirms
+- [x] Sub-agents receive injected memory context in system prompt
+- [x] Research sub-agents can only use `ccr_recall`
+- [x] Code sub-agents have full memory tool access
+- [x] Review sub-agents can only use `ccr_recall`
+- [x] Memory tools don't overload context (compact descriptions)
 
 ---
 
