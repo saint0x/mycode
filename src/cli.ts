@@ -20,7 +20,7 @@ import { migrateFromLegacy, detectLegacyConfig, detectNewConfig } from "./utils/
 const command = process.argv[2];
 
 const HELP_TEXT = `
-Usage: ccr [command]
+Usage: mycode [command]  (or: mc [command])
 
 Commands:
   start         Start server
@@ -37,11 +37,11 @@ Commands:
   -h, help      Show help information
 
 Example:
-  ccr start
-  ccr code "Write a Hello World"
-  ccr model
-  eval "$(ccr activate)"  # Set environment variables globally
-  ccr ui
+  mycode start
+  mycode code "Write a Hello World"
+  mc model
+  eval "$(mycode activate)"  # Set environment variables globally
+  mc ui
 `;
 
 async function waitForService(
@@ -159,7 +159,7 @@ async function main() {
           executeCodeCommand(codeArgs);
         } else {
           console.error(
-            "Service startup timeout, please manually run `ccr start` to start the service"
+            "Service startup timeout, please manually run `mycode start` to start the service"
           );
           process.exit(1);
         }
@@ -241,7 +241,7 @@ async function main() {
             if (!(await waitForService(15000))) {
               // Wait a bit longer for the first start
               console.error(
-                "Service startup still failing. Please manually run `ccr start` to start the service and check the logs."
+                "Service startup still failing. Please manually run `mycode start` to start the service and check the logs."
               );
               process.exit(1);
             }

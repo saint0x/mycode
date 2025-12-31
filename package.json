@@ -3,7 +3,8 @@
   "version": "1.0.73",
   "description": "Use Claude Code without an Anthropics account and route it to another LLM provider",
   "bin": {
-    "ccr": "dist/cli.js"
+    "mycode": "dist/cli.js",
+    "mc": "dist/cli.js"
   },
   "scripts": {
     "build": "node scripts/build.js",
