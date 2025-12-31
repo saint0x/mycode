@@ -19,6 +19,7 @@ import {SSEParserTransform} from "./utils/SSEParser.transform";
 import {SSESerializerTransform} from "./utils/SSESerializer.transform";
 import {rewriteStream} from "./utils/rewriteStream";
 import {createMemoryProcessingTransform} from "./utils/MemoryProcessing.transform";
+import { parseRememberTags } from "./utils/rememberTags";
 import JSON5 from "json5";
 import { IAgent } from "./agents/type";
 import agentsManager from "./agents";
@@ -28,62 +29,6 @@ import { getContextBuilder, initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
 
 const event = new EventEmitter()
-
-// ═══════════════════════════════════════════════════════════════════
-// PHASE 9.2.1: Lenient tag parsing
-// ═══════════════════════════════════════════════════════════════════
-
-interface ParsedRememberTag {
-  scope: 'global' | 'project';
-  category: string;
-  content: string;
-}
-
-/**
- * Parse <remember> tags with flexible attribute parsing
- * Handles: attribute order variations, single/double quotes, extra whitespace
- */
-function parseRememberTags(content: string): ParsedRememberTag[] {
-  const results: ParsedRememberTag[] = [];
-
-  // Match opening tag with any attribute order
-  const tagRegex = /<remember\s+([^>]*)>([\s\S]*?)<\/remember>/gi;
-  let match;
-
-  while ((match = tagRegex.exec(content)) !== null) {
-    const attrs = match[1];
-    const innerContent = match[2];
-
-    // Extract attributes flexibly (handles order, quotes, whitespace)
-    const scopeMatch = attrs.match(/scope\s*=\s*["'](global|project)["']/i);
-    const categoryMatch = attrs.match(/category\s*=\s*["'](\w+)["']/i);
-
-    if (scopeMatch && categoryMatch) {
-      results.push({
-        scope: scopeMatch[1].toLowerCase() as 'global' | 'project',
-        category: categoryMatch[1].toLowerCase(),
-        content: innerContent.trim(),
-      });
-    }
-  }
-
-  return results;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// PHASE 9.2.2: Strip remember tags from output
-// ═══════════════════════════════════════════════════════════════════
-
-/**
- * Strip <remember> tags from content before sending to user
- * Removes all remember blocks to keep output clean
- */
-function stripRememberTags(content: string): string {
-  // Remove all remember tags and their content
-  const stripped = content.replace(/<remember\s+[^>]*>[\s\S]*?<\/remember>/gi, '');
-  // Clean up extra whitespace/newlines left behind
-  return stripped.replace(/\n{3,}/g, '\n\n').trim();
-}
 
 // Extract and save memories from response content
 async function extractMemoriesFromResponse(

@@ -476,4 +476,135 @@ describe('Sub-Agent System', () => {
       log.success('ID header is correct');
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Phase 9: Sub-Agent Memory Inheritance Tests
+  // ═══════════════════════════════════════════════════════════════════
+
+  describe('Phase 9: Memory Tool Inheritance', () => {
+    test('research agent has ccr_recall in allowedTools', () => {
+      log.info('Testing research agent memory tool access');
+
+      const config = SUBAGENT_CONFIGS.research;
+
+      log.assertDefined(config.allowedTools, 'allowedTools');
+      log.assert(config.allowedTools!.includes('ccr_recall'), 'should allow ccr_recall');
+
+      log.success('Research agent has ccr_recall');
+    });
+
+    test('research agent has ccr_remember in disallowedTools', () => {
+      log.info('Testing research agent memory restrictions');
+
+      const config = SUBAGENT_CONFIGS.research;
+
+      log.assertDefined(config.disallowedTools, 'disallowedTools');
+      log.assert(config.disallowedTools!.includes('ccr_remember'), 'should disallow ccr_remember');
+      log.assert(config.disallowedTools!.includes('ccr_forget'), 'should disallow ccr_forget');
+
+      log.success('Research agent cannot modify memories');
+    });
+
+    test('code agent has all memory tools in allowedTools', () => {
+      log.info('Testing code agent memory tool access');
+
+      const config = SUBAGENT_CONFIGS.code;
+
+      log.assertDefined(config.allowedTools, 'allowedTools');
+      log.assert(config.allowedTools!.includes('ccr_remember'), 'should allow ccr_remember');
+      log.assert(config.allowedTools!.includes('ccr_recall'), 'should allow ccr_recall');
+      log.assert(config.allowedTools!.includes('ccr_forget'), 'should allow ccr_forget');
+
+      log.success('Code agent has full memory access');
+    });
+
+    test('review agent has ccr_recall in allowedTools', () => {
+      log.info('Testing review agent memory tool access');
+
+      const config = SUBAGENT_CONFIGS.review;
+
+      log.assertDefined(config.allowedTools, 'allowedTools');
+      log.assert(config.allowedTools!.includes('ccr_recall'), 'should allow ccr_recall');
+
+      log.success('Review agent has ccr_recall');
+    });
+
+    test('review agent has ccr_remember in disallowedTools', () => {
+      log.info('Testing review agent memory restrictions');
+
+      const config = SUBAGENT_CONFIGS.review;
+
+      log.assertDefined(config.disallowedTools, 'disallowedTools');
+      log.assert(config.disallowedTools!.includes('ccr_remember'), 'should disallow ccr_remember');
+      log.assert(config.disallowedTools!.includes('ccr_forget'), 'should disallow ccr_forget');
+
+      log.success('Review agent cannot modify memories');
+    });
+
+    test('filterToolsForSubAgent includes memory tools for code agent', () => {
+      log.info('Testing tool filtering for code agent');
+
+      const config = SUBAGENT_CONFIGS.code;
+      const mockTools = [
+        { name: 'Read' },
+        { name: 'Write' },
+        { name: 'ccr_remember' },
+        { name: 'ccr_recall' },
+        { name: 'ccr_forget' },
+      ];
+
+      const filtered = filterToolsForSubAgent(mockTools, config);
+      const toolNames = filtered.map(t => t.name);
+
+      log.assert(toolNames.includes('ccr_remember'), 'includes ccr_remember');
+      log.assert(toolNames.includes('ccr_recall'), 'includes ccr_recall');
+      log.assert(toolNames.includes('ccr_forget'), 'includes ccr_forget');
+
+      log.success('Code agent gets all memory tools');
+    });
+
+    test('filterToolsForSubAgent excludes ccr_remember for research agent', () => {
+      log.info('Testing tool filtering for research agent');
+
+      const config = SUBAGENT_CONFIGS.research;
+      const mockTools = [
+        { name: 'Read' },
+        { name: 'Glob' },
+        { name: 'ccr_remember' },
+        { name: 'ccr_recall' },
+        { name: 'ccr_forget' },
+      ];
+
+      const filtered = filterToolsForSubAgent(mockTools, config);
+      const toolNames = filtered.map(t => t.name);
+
+      log.assert(!toolNames.includes('ccr_remember'), 'excludes ccr_remember');
+      log.assert(!toolNames.includes('ccr_forget'), 'excludes ccr_forget');
+      log.assert(toolNames.includes('ccr_recall'), 'includes ccr_recall');
+
+      log.success('Research agent only gets ccr_recall');
+    });
+
+    test('filterToolsForSubAgent excludes ccr_remember for review agent', () => {
+      log.info('Testing tool filtering for review agent');
+
+      const config = SUBAGENT_CONFIGS.review;
+      const mockTools = [
+        { name: 'Read' },
+        { name: 'LSP' },
+        { name: 'ccr_remember' },
+        { name: 'ccr_recall' },
+        { name: 'ccr_forget' },
+      ];
+
+      const filtered = filterToolsForSubAgent(mockTools, config);
+      const toolNames = filtered.map(t => t.name);
+
+      log.assert(!toolNames.includes('ccr_remember'), 'excludes ccr_remember');
+      log.assert(!toolNames.includes('ccr_forget'), 'excludes ccr_forget');
+      log.assert(toolNames.includes('ccr_recall'), 'includes ccr_recall');
+
+      log.success('Review agent only gets ccr_recall');
+    });
+  });
 });
