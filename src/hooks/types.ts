@@ -1,3 +1,5 @@
+import type { CCRConfig } from '../config/schema';
+
 export type HookEvent =
   | 'PreToolUse'        // Before tool execution
   | 'PostToolUse'       // After tool execution
@@ -10,23 +12,48 @@ export type HookEvent =
   | 'PreCompact'        // Before context compaction
   | 'Notification';     // System notifications
 
+export interface HookRequest {
+  body: Record<string, unknown>;
+  headers: Record<string, string | string[] | undefined>;
+  sessionId?: string;
+  projectPath?: string;
+  url: string;
+  method: string;
+}
+
+export interface HookResponse {
+  statusCode: number;
+  headers: Record<string, string>;
+  body?: unknown;
+}
+
+export interface ToolInput {
+  [key: string]: string | number | boolean | null | undefined | Record<string, unknown>;
+}
+
+export interface ToolOutput {
+  result?: string;
+  error?: string;
+  data?: Record<string, unknown>;
+}
+
 export interface HookContext {
   event: HookEvent;
-  request?: any;
-  response?: any;
-  config: any;
+  request?: HookRequest;
+  response?: HookResponse;
+  config: CCRConfig;
   sessionId?: string;
   projectPath?: string;
   toolName?: string;
-  toolInput?: any;
-  toolOutput?: any;
+  toolInput?: ToolInput;
+  toolOutput?: ToolOutput;
   routeDecision?: string;
   timestamp: number;
 }
 
 export interface HookResult {
   continue: boolean;      // Whether to continue processing
-  modified?: any;         // Modified data to use
+  modified?: HookRequest; // Modified request to use
   error?: string;         // Error message if hook failed
 }
 

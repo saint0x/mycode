@@ -2,6 +2,20 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { HookEvent, HookDefinition, HookContext, HookResult, HookConfig, HookHandler } from "./types";
 import { HOOKS_DIR } from "../constants";
+import type { CCRConfig } from "../config/schema";
+
+interface HookModule {
+  default?: HookDefinition;
+  handler?: HookHandler;
+  name?: string;
+  event?: HookEvent | HookEvent[];
+}
+
+const DEFAULT_CONFIG: CCRConfig = {
+  PORT: 3456,
+  Providers: [],
+  Router: { default: '' }
+};
 
 export class HooksManager {
   private hooks: Map<HookEvent, HookDefinition[]> = new Map();
@@ -36,9 +50,9 @@ export class HooksManager {
    * Unregister a hook by name
    */
   unregisterHook(name: string): void {
-    for (const [event, hooks] of this.hooks) {
+    for (const [, hooks] of this.hooks) {
       const filtered = hooks.filter(h => h.name !== name);
-      this.hooks.set(event, filtered);
+      this.hooks.set(hooks[0]?.event as HookEvent || 'Notification', filtered);
     }
   }
 
@@ -54,7 +68,7 @@ export class HooksManager {
 
         const filePath = path.join(dir, file);
         try {
-          const hookModule = require(filePath);
+          const hookModule = await import(filePath) as HookModule;
           const hook = hookModule.default || hookModule;
 
           if (this.isValidHook(hook)) {
@@ -63,8 +77,9 @@ export class HooksManager {
               handler: filePath  // Store path for reloading
             });
           }
-        } catch (e: any) {
-          console.error(`[Hooks] Failed to load ${file}:`, e.message);
+        } catch (e) {
+          const error = e instanceof Error ? e : new Error(String(e));
+          console.error(`[Hooks] Failed to load ${file}:`, error.message);
         }
       }
     } catch {
@@ -83,7 +98,7 @@ export class HooksManager {
     const eventHooks = this.hooks.get(event) || [];
     const fullContext: HookContext = {
       event,
-      config: context.config || {},
+      config: context.config || DEFAULT_CONFIG,
       timestamp: Date.now(),
       ...context
     };
@@ -112,8 +127,9 @@ export class HooksManager {
           Object.assign(fullContext, { request: result.modified });
         }
 
-      } catch (e: any) {
-        console.error(`[Hooks] ${hook.name} failed:`, e.message);
+      } catch (e) {
+        const error = e instanceof Error ? e : new Error(String(e));
+        console.error(`[Hooks] ${hook.name} failed:`, error.message);
         // Continue on hook failure (non-blocking)
       }
     }
@@ -149,12 +165,14 @@ export class HooksManager {
     }
 
     // Load from file path
-    const module = require(handler);
-    return module.default || module.handler || module;
+    const module = await import(handler) as HookModule;
+    return module.default?.handler as HookHandler || module.handler || (module as unknown as HookHandler);
   }
 
-  private isValidHook(obj: any): obj is HookDefinition {
-    return obj && typeof obj.name === 'string' && obj.event;
+  private isValidHook(obj: unknown): obj is HookDefinition {
+    if (!obj || typeof obj !== 'object') return false;
+    const hook = obj as Record<string, unknown>;
+    return typeof hook.name === 'string' && hook.event !== undefined;
   }
 }
 

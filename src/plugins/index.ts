@@ -3,6 +3,16 @@ import path from "node:path";
 import { PluginManifest, LoadedPlugin, PluginConfig, SkillDefinition, CommandDefinition } from "./types";
 import { PLUGINS_DIR } from "../constants";
 import { getHooksManager, hasHooksManager } from "../hooks";
+import agentsManager from "../agents";
+import type { IAgent } from "../agents/type";
+
+interface AgentModule {
+  default?: IAgent;
+}
+
+interface FileSystemError extends Error {
+  code?: string;
+}
 
 export class PluginManager {
   private plugins: Map<string, LoadedPlugin> = new Map();
@@ -54,11 +64,14 @@ export class PluginManager {
         for (const agentPath of manifest.agents) {
           const fullPath = path.join(pluginPath, 'agents', agentPath);
           try {
-            const agentModule = require(fullPath);
-            const agent = agentModule.default || agentModule;
+            const agentModule = await import(fullPath) as AgentModule;
+            const agent = agentModule.default || agentModule as unknown as IAgent;
             plugin.agents.push(agent);
-          } catch (e: any) {
-            console.error(`[Plugins] Failed to load agent ${agentPath}:`, e.message);
+            // Register agent with the agents manager
+            agentsManager.registerAgent(agent);
+          } catch (e) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            console.error(`[Plugins] Failed to load agent ${agentPath}:`, error.message);
           }
         }
       }
@@ -67,10 +80,11 @@ export class PluginManager {
       console.log(`[Plugins] Loaded: ${manifest.name} v${manifest.version}`);
       return plugin;
 
-    } catch (e: any) {
+    } catch (e) {
+      const error = e as FileSystemError;
       // Only log error if it's not just a missing manifest
-      if (e.code !== 'ENOENT') {
-        console.error(`[Plugins] Failed to load plugin at ${pluginPath}:`, e.message);
+      if (error.code !== 'ENOENT') {
+        console.error(`[Plugins] Failed to load plugin at ${pluginPath}:`, error.message);
       }
       return null;
     }
@@ -106,6 +120,13 @@ export class PluginManager {
     const plugin = this.plugins.get(name);
     if (plugin) {
       plugin.enabled = true;
+      // Re-register hooks
+      if (hasHooksManager() && plugin.hooks.length > 0) {
+        const hooksManager = getHooksManager();
+        for (const hook of plugin.hooks) {
+          hooksManager.registerHook(hook);
+        }
+      }
       return true;
     }
     return false;
@@ -118,6 +139,13 @@ export class PluginManager {
     const plugin = this.plugins.get(name);
     if (plugin) {
       plugin.enabled = false;
+      // Unregister hooks
+      if (hasHooksManager() && plugin.hooks.length > 0) {
+        const hooksManager = getHooksManager();
+        for (const hook of plugin.hooks) {
+          hooksManager.unregisterHook(hook.name);
+        }
+      }
       return true;
     }
     return false;

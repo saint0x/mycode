@@ -1,6 +1,8 @@
 import { HookDefinition } from '../hooks/types';
 import { IAgent } from '../agents/type';
 
+export type PluginConfigValue = string | number | boolean | null | PluginConfigValue[] | { [key: string]: PluginConfigValue };
+
 export interface PluginManifest {
   name: string;
   version: string;
@@ -14,7 +16,7 @@ export interface PluginManifest {
   agents?: string[];  // Paths to agent files
 
   // Configuration
-  config?: Record<string, any>;
+  config?: Record<string, PluginConfigValue>;
 
   // Dependencies
   dependencies?: string[];
@@ -49,7 +51,7 @@ export interface ArgumentSchema {
   type: 'string' | 'number' | 'boolean';
   description?: string;
   required?: boolean;
-  default?: any;
+  default?: string | number | boolean;
 }
 
 export interface LoadedPlugin {

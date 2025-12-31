@@ -1,7 +1,8 @@
 import Server from "@musistudio/llms";
 import { readConfigFile, writeConfigFile, backupConfigFile } from "./utils";
 import { checkForUpdates, performUpdate } from "./utils";
-import { join } from "path";
+import { join, basename, resolve } from "path";
+import { spawn } from "child_process";
 import fastifyStatic from "@fastify/static";
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync } from "fs";
 import {calculateTokenCount} from "./utils/router";
@@ -9,8 +10,36 @@ import { LOGS_DIR } from "./constants";
 import { getPluginManager, hasPluginManager } from "./plugins";
 import { getHooksManager, hasHooksManager } from "./hooks";
 import { getSkillsManager, hasSkillsManager } from "./skills";
+import type { ProviderConfig } from "./config/schema";
+import { version } from "../package.json";
 
-export const createServer = (config: any): Server => {
+interface ServerConfig {
+  jsonPath: string;
+  initialConfig: {
+    providers: ProviderConfig[];
+    HOST: string;
+    PORT: number;
+    LOG_FILE: string;
+  };
+  logger: {
+    level: string;
+    stream: NodeJS.WritableStream;
+  } | false;
+}
+
+interface TransformerEntry {
+  endPoint?: string;
+}
+
+interface LogQueryParams {
+  file?: string;
+}
+
+interface ExtendedRequest {
+  accessLevel?: 'full' | 'restricted';
+}
+
+export const createServer = (config: ServerConfig): Server => {
   const server = new Server(config);
 
   server.app.post("/v1/messages/count_tokens", async (req, reply) => {
@@ -28,7 +57,7 @@ export const createServer = (config: any): Server => {
     const transformers =
       server.app._server!.transformerService.getAllTransformers();
     const transformerList = Array.from(transformers.entries()).map(
-      ([name, transformer]: any) => ({
+      ([name, transformer]: [string, TransformerEntry]) => ({
         name,
         endpoint: transformer.endPoint || null,
       })
@@ -56,7 +85,6 @@ export const createServer = (config: any): Server => {
 
     // Restart the service after a short delay to allow response to be sent
     setTimeout(() => {
-      const { spawn } = require("child_process");
       spawn(process.execPath, [process.argv[1], "restart"], {
         detached: true,
         stdio: "ignore",
@@ -79,9 +107,7 @@ export const createServer = (config: any): Server => {
   // Version check endpoint
   server.app.get("/api/update/check", async (req, reply) => {
     try {
-      // Get current version
-      const currentVersion = require("../package.json").version;
-      const { hasUpdate, latestVersion, changelog } = await checkForUpdates(currentVersion);
+      const { hasUpdate, latestVersion, changelog } = await checkForUpdates(version);
 
       return {
         hasUpdate,
@@ -98,7 +124,8 @@ export const createServer = (config: any): Server => {
   server.app.post("/api/update/perform", async (req, reply) => {
     try {
       // Only allow full access users to perform updates
-      const accessLevel = (req as any).accessLevel || "restricted";
+      const extReq = req as typeof req & ExtendedRequest;
+      const accessLevel = extReq.accessLevel || "restricted";
       if (accessLevel !== "full") {
         reply.status(403).send("Full access required to perform updates");
         return;
@@ -151,12 +178,21 @@ export const createServer = (config: any): Server => {
   // Get log content endpoint
   server.app.get("/api/logs", async (req, reply) => {
     try {
-      const filePath = (req.query as any).file as string;
+      const query = req.query as LogQueryParams;
+      const fileName = query.file;
       let logFilePath: string;
 
-      if (filePath) {
-        // Use specified file path
-        logFilePath = filePath;
+      if (fileName) {
+        // Validate: only allow filenames, not paths (prevent path traversal)
+        const sanitizedName = basename(fileName);
+        logFilePath = join(LOGS_DIR, sanitizedName);
+
+        // Double-check the resolved path is within LOGS_DIR
+        const resolved = resolve(logFilePath);
+        const logsResolved = resolve(LOGS_DIR);
+        if (!resolved.startsWith(logsResolved)) {
+          return reply.status(403).send({ error: "Invalid file path" });
+        }
       } else {
         // Use default log file path
         logFilePath = join(LOGS_DIR, "app.log");
@@ -179,12 +215,21 @@ export const createServer = (config: any): Server => {
   // Clear log content endpoint
   server.app.delete("/api/logs", async (req, reply) => {
     try {
-      const filePath = (req.query as any).file as string;
+      const query = req.query as LogQueryParams;
+      const fileName = query.file;
       let logFilePath: string;
 
-      if (filePath) {
-        // Use specified file path
-        logFilePath = filePath;
+      if (fileName) {
+        // Validate: only allow filenames, not paths (prevent path traversal)
+        const sanitizedName = basename(fileName);
+        logFilePath = join(LOGS_DIR, sanitizedName);
+
+        // Double-check the resolved path is within LOGS_DIR
+        const resolved = resolve(logFilePath);
+        const logsResolved = resolve(LOGS_DIR);
+        if (!resolved.startsWith(logsResolved)) {
+          return reply.status(403).send({ error: "Invalid file path" });
+        }
       } else {
         // Use default log file path
         logFilePath = join(LOGS_DIR, "app.log");

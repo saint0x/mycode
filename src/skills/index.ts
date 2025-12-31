@@ -4,6 +4,13 @@ import { SkillDefinition } from "../plugins/types";
 import { SkillContext, SkillResult, SkillHandler } from "./types";
 import { SKILLS_DIR } from "../constants";
 
+interface SkillModule {
+  default?: SkillDefinition | SkillHandler;
+  handler?: SkillHandler;
+  name?: string;
+  trigger?: string | RegExp;
+}
+
 export class SkillsManager {
   private skills: Map<string, SkillDefinition> = new Map();
 
@@ -34,7 +41,7 @@ export class SkillsManager {
 
         const filePath = path.join(dir, file);
         try {
-          const skillModule = require(filePath);
+          const skillModule = await import(filePath) as SkillModule;
           const skill = skillModule.default || skillModule;
 
           if (this.isValidSkill(skill)) {
@@ -43,8 +50,9 @@ export class SkillsManager {
               handler: filePath
             });
           }
-        } catch (e: any) {
-          console.error(`[Skills] Failed to load ${file}:`, e.message);
+        } catch (e) {
+          const error = e instanceof Error ? e : new Error(String(e));
+          console.error(`[Skills] Failed to load ${file}:`, error.message);
         }
       }
     } catch {
@@ -91,8 +99,9 @@ export class SkillsManager {
       ]);
 
       return result;
-    } catch (e: any) {
-      return { success: false, output: `Skill failed: ${e.message}` };
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      return { success: false, output: `Skill failed: ${error.message}` };
     }
   }
 
@@ -104,12 +113,14 @@ export class SkillsManager {
   }
 
   private async resolveHandler(handler: string): Promise<SkillHandler> {
-    const module = require(handler);
-    return module.default || module.handler || module;
+    const module = await import(handler) as SkillModule;
+    return (module.default as SkillHandler) || module.handler || (module as unknown as SkillHandler);
   }
 
-  private isValidSkill(obj: any): obj is SkillDefinition {
-    return obj && typeof obj.name === 'string' && obj.trigger;
+  private isValidSkill(obj: unknown): obj is SkillDefinition {
+    if (!obj || typeof obj !== 'object') return false;
+    const skill = obj as Record<string, unknown>;
+    return typeof skill.name === 'string' && skill.trigger !== undefined;
   }
 }
 

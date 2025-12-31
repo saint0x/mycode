@@ -66,10 +66,12 @@ export interface RouterConfig {
   image?: string;
 }
 
+export type TransformerOptionValue = string | number | boolean | null | TransformerOptionValue[] | { [key: string]: TransformerOptionValue };
+
 export interface TransformerConfig {
   name?: string;
   path: string;
-  options?: Record<string, any>;
+  options?: Record<string, TransformerOptionValue>;
 }
 
 export interface MemorySystemConfig {
@@ -110,9 +112,23 @@ export interface SkillsConfig {
   directory?: string;
 }
 
+export interface StatusLineModuleConfig {
+  type: string;
+  icon?: string;
+  text: string;
+  color?: string;
+  background?: string;
+  scriptPath?: string;
+}
+
+export interface StatusLineThemeConfig {
+  modules: StatusLineModuleConfig[];
+}
+
 export interface StatusLineConfig {
   enabled: boolean;
   currentStyle: string;
-  default?: any;
-  powerline?: any;
+  default?: StatusLineThemeConfig;
+  powerline?: StatusLineThemeConfig;
+  [key: string]: boolean | string | StatusLineThemeConfig | undefined;
 }
