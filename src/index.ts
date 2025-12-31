@@ -4,14 +4,14 @@ import { homedir } from "os";
 import path, { join } from "path";
 import { initConfig, initDir, cleanupLogFiles } from "./utils";
 import { createServer } from "./server";
-import { router } from "./utils/router";
+import { router, searchProjectBySession } from "./utils/router";
 import { apiKeyAuth } from "./middleware/auth";
 import {
   cleanupPidFile,
   isServiceRunning,
   savePid,
 } from "./utils/processCheck";
-import { CONFIG_FILE } from "./constants";
+import { CONFIG_FILE, MEMORY_DB_PATH } from "./constants";
 import { createStream } from 'rotating-file-stream';
 import { HOME_DIR } from "./constants";
 import { sessionUsageCache } from "./utils/cache";
@@ -22,8 +22,94 @@ import JSON5 from "json5";
 import { IAgent } from "./agents/type";
 import agentsManager from "./agents";
 import { EventEmitter } from "node:events";
+import { initMemoryService, getMemoryService, hasMemoryService } from "./memory";
+import { getContextBuilder, initContextBuilder } from "./context";
+import type { MemoryConfig, MemoryCategory } from "./memory/types";
 
 const event = new EventEmitter()
+
+// Extract and save memories from response content
+async function extractMemoriesFromResponse(
+  content: string,
+  req: any,
+  config: any
+): Promise<void> {
+  if (!config.Memory?.enabled || !hasMemoryService()) return;
+
+  try {
+    const memoryService = getMemoryService();
+
+    // Extract <remember> tags
+    const rememberRegex = /<remember\s+scope="(global|project)"\s+category="(\w+)">([\s\S]*?)<\/remember>/g;
+    let match;
+
+    while ((match = rememberRegex.exec(content)) !== null) {
+      const [, scope, category, memoryContent] = match;
+
+      await memoryService.remember(memoryContent.trim(), {
+        scope: scope as 'global' | 'project',
+        projectPath: req.projectPath,
+        category: category as MemoryCategory,
+        metadata: {
+          sessionId: req.sessionId,
+          source: 'agent-explicit',
+        },
+      });
+
+      if (config.Memory.debugMode) {
+        console.log(`[Memory] Saved ${scope} memory (${category}):`, memoryContent.trim().slice(0, 50) + '...');
+      }
+    }
+
+    // Auto-extract if enabled
+    if (config.Memory.autoExtract) {
+      await autoExtractMemories(content, req, config);
+    }
+  } catch (err) {
+    console.error('[Memory] Error extracting memories:', err);
+  }
+}
+
+async function autoExtractMemories(content: string, req: any, config: any): Promise<void> {
+  if (!hasMemoryService()) return;
+
+  const memoryService = getMemoryService();
+  const patterns = [
+    {
+      regex: /(?:user prefers?|always use|never use|I (?:like|prefer|want))\s+(.+?)(?:\.|$)/gi,
+      category: 'preference' as MemoryCategory,
+      scope: 'global' as const,
+    },
+    {
+      regex: /(?:decided to|choosing|went with|using)\s+(.+?)\s+(?:for|because|since)/gi,
+      category: 'decision' as MemoryCategory,
+      scope: 'project' as const,
+    },
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.regex.exec(content)) !== null) {
+      const extractedContent = match[1].trim();
+      if (extractedContent.length > 10 && extractedContent.length < 500) {
+        try {
+          await memoryService.remember(extractedContent, {
+            scope: pattern.scope,
+            projectPath: req.projectPath,
+            category: pattern.category,
+            importance: 0.5,
+            metadata: {
+              sessionId: req.sessionId,
+              source: 'auto-extracted',
+            },
+          });
+        } catch (err) {
+          // Silently ignore extraction errors
+        }
+      }
+    }
+  }
+}
 
 async function initializeClaudeConfig() {
   const homeDir = homedir();
@@ -62,6 +148,45 @@ async function run(options: RunOptions = {}) {
   // Clean up old log files, keeping only the 10 most recent ones
   await cleanupLogFiles();
   const config = await initConfig();
+
+  // Initialize memory service if configured
+  if (config.Memory?.enabled) {
+    const memoryConfig: MemoryConfig = {
+      enabled: true,
+      dbPath: config.Memory.dbPath || MEMORY_DB_PATH,
+      embedding: {
+        provider: config.Memory.embedding?.provider || 'openai',
+        apiKey: config.Memory.embedding?.apiKey || config.OPENAI_API_KEY,
+        baseUrl: config.Memory.embedding?.baseUrl || config.OPENAI_BASE_URL,
+        model: config.Memory.embedding?.model,
+      },
+      autoInject: {
+        global: config.Memory.autoInject?.global ?? true,
+        project: config.Memory.autoInject?.project ?? true,
+        maxMemories: config.Memory.autoInject?.maxMemories ?? 10,
+        maxTokens: config.Memory.autoInject?.maxTokens ?? 2000,
+      },
+      autoExtract: config.Memory.autoExtract ?? true,
+      retention: {
+        minImportance: config.Memory.retention?.minImportance ?? 0.3,
+        maxAgeDays: config.Memory.retention?.maxAgeDays ?? 90,
+        cleanupIntervalMs: config.Memory.retention?.cleanupIntervalMs ?? 86400000,
+      },
+      debugMode: config.Memory.debugMode ?? false,
+    };
+
+    try {
+      initMemoryService(memoryConfig);
+      initContextBuilder({
+        enableMemory: true,
+        enableEmphasis: true,
+        debugMode: memoryConfig.debugMode,
+      });
+      console.log("✅ Memory service initialized");
+    } catch (err) {
+      console.error("⚠️ Failed to initialize memory service:", err);
+    }
+  }
 
 
   let HOST = config.HOST || "127.0.0.1";
@@ -188,6 +313,40 @@ async function run(options: RunOptions = {}) {
       if (useAgents.length) {
         req.agents = useAgents;
       }
+
+      // Build dynamic context with memory injection
+      if (config.Memory?.enabled && hasMemoryService()) {
+        try {
+          const builder = getContextBuilder();
+          const projectPath = req.sessionId ? await searchProjectBySession(req.sessionId) : undefined;
+
+          const contextResult = await builder.build(
+            req.body.system,
+            {
+              messages: req.body.messages,
+              projectPath: projectPath || undefined,
+              sessionId: req.sessionId,
+              tools: req.body.tools,
+            }
+          );
+
+          // Replace system prompt with enhanced version
+          req.body.system = contextResult.systemPrompt;
+          req.contextAnalysis = contextResult.analysis;
+          req.projectPath = projectPath;
+
+          if (config.Memory.debugMode) {
+            req.log.info('[Context Builder]', {
+              taskType: contextResult.analysis.taskType,
+              sections: contextResult.sections.length,
+              tokens: contextResult.totalTokens,
+            });
+          }
+        } catch (err) {
+          req.log.error('Context building failed:', err);
+        }
+      }
+
       await router(req, reply, {
         config,
         event

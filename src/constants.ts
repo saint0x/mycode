@@ -14,6 +14,8 @@ export const REFERENCE_COUNT_FILE = path.join(os.tmpdir(), "claude-code-referenc
 // Claude projects directory
 export const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects");
 
+// Memory database path
+export const MEMORY_DB_PATH = path.join(HOME_DIR, "memory.db");
 
 export const DEFAULT_CONFIG = {
   LOG: false,

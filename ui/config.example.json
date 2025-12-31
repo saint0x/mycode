@@ -175,5 +175,26 @@
     "longContext": "gemini-cli,gemini-2.5-pro",
     "webSearch": "gemini-cli,gemini-2.5-flash"
   },
+  "Memory": {
+    "enabled": true,
+    "debugMode": false,
+    "embedding": {
+      "provider": "openai",
+      "apiKey": "${OPENAI_API_KEY}",
+      "model": "text-embedding-3-small"
+    },
+    "autoInject": {
+      "global": true,
+      "project": true,
+      "maxMemories": 10,
+      "maxTokens": 2000
+    },
+    "autoExtract": true,
+    "retention": {
+      "minImportance": 0.3,
+      "maxAgeDays": 90,
+      "cleanupIntervalMs": 86400000
+    }
+  },
   "NON_INTERACTIVE_MODE": false
 }
