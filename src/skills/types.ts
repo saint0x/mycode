@@ -5,7 +5,8 @@ export type SkillArgValue = string | number | boolean | null;
 
 export interface SkillContext {
   args: Record<string, SkillArgValue>;
-  request: HookRequest;
+  rawInput?: string;
+  request?: HookRequest;
   config: CCRConfig;
   sessionId?: string;
   projectPath?: string;

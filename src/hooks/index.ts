@@ -123,8 +123,8 @@ export class HooksManager {
         }
 
         // Apply modifications if any
-        if (result.modified) {
-          Object.assign(fullContext, { request: result.modified });
+        if (result.modifications?.body && fullContext.request) {
+          fullContext.request.body = { ...fullContext.request.body, ...result.modifications.body };
         }
 
       } catch (e) {

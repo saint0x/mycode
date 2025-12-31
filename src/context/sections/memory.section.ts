@@ -8,8 +8,13 @@ import { ContextPriority } from '../types';
 import { getMemoryService, hasMemoryService } from '../../memory';
 import type { Memory } from '../../memory/types';
 
+interface MessageItem {
+  role: string;
+  content: string | Array<{ type: string; text?: string }>;
+}
+
 export async function buildMemorySections(
-  request: { messages: any[]; projectPath?: string },
+  request: { messages: MessageItem[]; projectPath?: string },
   maxSections: number = 10
 ): Promise<ContextSection[]> {
   if (!hasMemoryService()) {
@@ -21,6 +26,25 @@ export async function buildMemorySections(
 
   try {
     const context = await memoryService.getContextForRequest(request);
+
+    const totalMemories = context.globalMemories.length + context.projectMemories.length;
+
+    // Add memory injection indicator if any memories were loaded
+    if (totalMemories > 0) {
+      const indicatorContent = buildMemoryIndicator(
+        context.globalMemories.length,
+        context.projectMemories.length
+      );
+      sections.push({
+        id: 'memory-indicator',
+        name: 'Memory Status',
+        content: indicatorContent,
+        priority: ContextPriority.CRITICAL,
+        tokenCount: estimateTokens(indicatorContent),
+        category: 'system',
+        metadata: { totalMemories },
+      });
+    }
 
     // Build global memory section
     if (context.globalMemories.length > 0) {
@@ -54,6 +78,20 @@ export async function buildMemorySections(
   }
 
   return sections.slice(0, maxSections);
+}
+
+function buildMemoryIndicator(globalCount: number, projectCount: number): string {
+  const lines: string[] = [
+    '<memory_status>',
+    'Memories have been automatically loaded based on semantic relevance to this conversation.',
+    `- Global memories: ${globalCount}`,
+    `- Project memories: ${projectCount}`,
+    '',
+    'These memories represent your persistent knowledge. Do not re-query for information already present.',
+    'Use mc_remember to save new important information, mc_recall for explicit searches, mc_forget to remove outdated info.',
+    '</memory_status>'
+  ];
+  return lines.join('\n');
 }
 
 function formatMemories(memories: Memory[], scope: 'global' | 'project'): string {

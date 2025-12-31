@@ -321,6 +321,77 @@ async function run(options: RunOptions = {}) {
   });
   server.addHook("preHandler", async (req, reply) => {
     if (req.url.startsWith("/v1/messages") && !req.url.startsWith("/v1/messages/count_tokens")) {
+      // ═══════════════════════════════════════════════════════════════════
+      // HOOK: SessionStart - Fire at start of new session/request
+      // ═══════════════════════════════════════════════════════════════════
+      if (hasHooksManager()) {
+        try {
+          const sessionStartResult = await getHooksManager().executeHooks('SessionStart', {
+            request: {
+              body: req.body,
+              headers: req.headers as Record<string, string | string[] | undefined>,
+              url: req.url,
+              method: req.method,
+              sessionId: req.sessionId,
+              projectPath: req.projectPath
+            },
+            config,
+            sessionId: req.sessionId,
+            projectPath: req.projectPath
+          });
+
+          if (!sessionStartResult.continue) {
+            return reply.status(403).send({
+              error: {
+                type: 'hook_blocked',
+                message: sessionStartResult.error || 'Request blocked by SessionStart hook'
+              }
+            });
+          }
+        } catch (err) {
+          req.log.error('[Hooks] SessionStart hook error:', err);
+          // Fail open - continue processing
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // HOOK: PreRoute - Before context building and routing
+      // ═══════════════════════════════════════════════════════════════════
+      if (hasHooksManager()) {
+        try {
+          const preRouteResult = await getHooksManager().executeHooks('PreRoute', {
+            request: {
+              body: req.body,
+              headers: req.headers as Record<string, string | string[] | undefined>,
+              url: req.url,
+              method: req.method,
+              sessionId: req.sessionId,
+              projectPath: req.projectPath
+            },
+            config,
+            sessionId: req.sessionId,
+            projectPath: req.projectPath
+          });
+
+          if (!preRouteResult.continue) {
+            return reply.status(403).send({
+              error: {
+                type: 'hook_blocked',
+                message: preRouteResult.error || 'Request blocked by PreRoute hook'
+              }
+            });
+          }
+
+          // Apply any modifications from hook
+          if (preRouteResult.modifications?.body) {
+            req.body = { ...req.body, ...preRouteResult.modifications.body };
+          }
+        } catch (err) {
+          req.log.error('[Hooks] PreRoute hook error:', err);
+          // Fail open - continue processing
+        }
+      }
+
       const useAgents = []
 
       for (const agent of agentsManager.getAllAgents()) {
@@ -388,6 +459,31 @@ async function run(options: RunOptions = {}) {
         config,
         event
       });
+
+      // ═══════════════════════════════════════════════════════════════════
+      // HOOK: PostRoute - After routing decision
+      // ═══════════════════════════════════════════════════════════════════
+      if (hasHooksManager()) {
+        try {
+          await getHooksManager().executeHooks('PostRoute', {
+            request: {
+              body: req.body,
+              headers: req.headers as Record<string, string | string[] | undefined>,
+              url: req.url,
+              method: req.method,
+              sessionId: req.sessionId,
+              projectPath: req.projectPath
+            },
+            config,
+            sessionId: req.sessionId,
+            projectPath: req.projectPath,
+            routeDecision: req.routeInfo?.provider || 'unknown'
+          });
+        } catch (err) {
+          req.log.error('[Hooks] PostRoute hook error:', err);
+          // Fail open - continue processing
+        }
+      }
     }
   });
   server.addHook("onError", async (request, reply, error) => {
@@ -437,10 +533,65 @@ async function run(options: RunOptions = {}) {
                     name: currentToolName,
                     input: args
                   })
-                  const toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
-                    req,
-                    config
-                  });
+
+                  // ═══════════════════════════════════════════════════════════════
+                  // HOOK: PreToolUse - Before tool execution
+                  // ═══════════════════════════════════════════════════════════════
+                  let toolBlocked = false;
+                  let toolBlockedMessage = '';
+                  if (hasHooksManager()) {
+                    try {
+                      const preToolResult = await getHooksManager().executeHooks('PreToolUse', {
+                        toolName: currentToolName,
+                        toolInput: args,
+                        config,
+                        sessionId: req.sessionId,
+                        projectPath: req.projectPath
+                      });
+
+                      if (!preToolResult.continue) {
+                        toolBlocked = true;
+                        toolBlockedMessage = preToolResult.error || `Tool ${currentToolName} blocked by hook`;
+                      }
+                    } catch (err) {
+                      console.error('[Hooks] PreToolUse hook error:', err);
+                      // Fail open - continue with tool execution
+                    }
+                  }
+
+                  let toolResult: string | undefined;
+                  if (toolBlocked) {
+                    toolResult = toolBlockedMessage;
+                  } else {
+                    toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
+                      req,
+                      config
+                    });
+
+                    // ═══════════════════════════════════════════════════════════════
+                    // HOOK: PostToolUse - After tool execution
+                    // ═══════════════════════════════════════════════════════════════
+                    if (hasHooksManager()) {
+                      try {
+                        const postToolResult = await getHooksManager().executeHooks('PostToolUse', {
+                          toolName: currentToolName,
+                          toolInput: args,
+                          toolOutput: { result: toolResult },
+                          config,
+                          sessionId: req.sessionId,
+                          projectPath: req.projectPath
+                        });
+
+                        // Allow hooks to modify tool output
+                        if (postToolResult.modifications?.toolOutput) {
+                          toolResult = postToolResult.modifications.toolOutput;
+                        }
+                      } catch (err) {
+                        console.error('[Hooks] PostToolUse hook error:', err);
+                      }
+                    }
+                  }
+
                   toolMessages.push({
                     "tool_use_id": currentToolId,
                     "type": "tool_result",
@@ -645,7 +796,65 @@ async function run(options: RunOptions = {}) {
     done(null, payload)
   });
   server.addHook("onSend", async (req, reply, payload) => {
+    // ═══════════════════════════════════════════════════════════════════
+    // HOOK: PreResponse - Before sending response to client
+    // ═══════════════════════════════════════════════════════════════════
+    if (req.url.startsWith("/v1/messages") && !req.url.startsWith("/v1/messages/count_tokens") && hasHooksManager()) {
+      try {
+        const preResponseResult = await getHooksManager().executeHooks('PreResponse', {
+          request: {
+            body: req.body,
+            headers: req.headers as Record<string, string | string[] | undefined>,
+            url: req.url,
+            method: req.method,
+            sessionId: req.sessionId,
+            projectPath: req.projectPath
+          },
+          response: {
+            statusCode: reply.statusCode,
+            headers: reply.getHeaders() as Record<string, string>
+          },
+          config,
+          sessionId: req.sessionId,
+          projectPath: req.projectPath
+        });
+
+        if (!preResponseResult.continue) {
+          console.log('[Hooks] PreResponse blocked response');
+        }
+      } catch (err) {
+        console.error('[Hooks] PreResponse hook error:', err);
+      }
+    }
+
     event.emit('onSend', req, reply, payload);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // HOOK: SessionEnd - After response is complete
+    // ═══════════════════════════════════════════════════════════════════
+    if (req.url.startsWith("/v1/messages") && !req.url.startsWith("/v1/messages/count_tokens") && hasHooksManager()) {
+      // Fire SessionEnd asynchronously - don't block response
+      getHooksManager().executeHooks('SessionEnd', {
+        request: {
+          body: req.body,
+          headers: req.headers as Record<string, string | string[] | undefined>,
+          url: req.url,
+          method: req.method,
+          sessionId: req.sessionId,
+          projectPath: req.projectPath
+        },
+        response: {
+          statusCode: reply.statusCode,
+          headers: reply.getHeaders() as Record<string, string>
+        },
+        config,
+        sessionId: req.sessionId,
+        projectPath: req.projectPath
+      }).catch(err => {
+        console.error('[Hooks] SessionEnd hook error:', err);
+      });
+    }
+
     return payload;
   })
 

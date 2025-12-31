@@ -8,11 +8,91 @@ import {
 import { quote } from 'shell-quote';
 import minimist from "minimist";
 import { createEnvVariables } from "./createEnvVariables";
+import { initSkillsManager, getSkillsManager, hasSkillsManager } from "../skills";
+import { SKILLS_DIR } from "../constants";
+import type { SkillContext, SkillArgValue } from "../skills/types";
+import type { CCRConfig } from "../config/schema";
 
+function parseSkillArgs(input: string, trigger: string): Record<string, SkillArgValue> {
+  const argsStr = input.slice(trigger.length).trim();
+  if (!argsStr) return {};
+
+  const args: Record<string, SkillArgValue> = { _raw: argsStr };
+  const parts = argsStr.split(/\s+/);
+
+  parts.forEach((part, idx) => {
+    if (part.startsWith('--')) {
+      const [key, ...valueParts] = part.slice(2).split('=');
+      args[key] = valueParts.length > 0 ? valueParts.join('=') : true;
+    } else if (part.startsWith('-')) {
+      args[part.slice(1)] = true;
+    } else {
+      args[`arg${idx}`] = part;
+    }
+  });
+
+  return args;
+}
+
+async function tryExecuteSkill(input: string, config: CCRConfig): Promise<boolean> {
+  if (!input.startsWith('/')) return false;
+
+  // Initialize skills if needed
+  if (!hasSkillsManager()) {
+    try {
+      const skillsManager = initSkillsManager();
+      await skillsManager.loadSkillsFromDir(config.Skills?.directory || SKILLS_DIR);
+    } catch (err) {
+      console.error('[Skills] Failed to initialize:', err);
+      return false;
+    }
+  }
+
+  const skillsManager = getSkillsManager();
+  const skill = skillsManager.findSkillByTrigger(input);
+
+  if (!skill) return false;
+
+  console.log(`[Skills] Executing: ${skill.name}`);
+
+  const trigger = typeof skill.trigger === 'string' ? skill.trigger : skill.trigger.source;
+  const skillContext: SkillContext = {
+    args: parseSkillArgs(input, trigger),
+    rawInput: input,
+    config,
+    projectPath: process.cwd()
+  };
+
+  try {
+    const result = await skillsManager.executeSkill(skill.name, skillContext);
+
+    if (result.success) {
+      console.log(result.output);
+    } else {
+      console.error(`[Skills] Failed: ${result.output}`);
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[Skills] Execution error:', err);
+    return false;
+  }
+}
 
 export async function executeCodeCommand(args: string[] = []) {
   // Set environment variables using shared function
   const config = await readConfigFile();
+
+  // Check for skill invocation (slash commands)
+  const firstArg = args[0];
+  if (firstArg && firstArg.startsWith('/')) {
+    const fullInput = args.join(' ');
+    const wasSkill = await tryExecuteSkill(fullInput, config);
+    if (wasSkill) {
+      return;
+    }
+  }
+
   const env = await createEnvVariables();
   const settingsFlag = {
     env

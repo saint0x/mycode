@@ -51,10 +51,16 @@ export interface HookContext {
   timestamp: number;
 }
 
+export interface HookModifications {
+  body?: Record<string, unknown>;
+  toolOutput?: string;
+  response?: Partial<HookResponse>;
+}
+
 export interface HookResult {
-  continue: boolean;      // Whether to continue processing
-  modified?: HookRequest; // Modified request to use
-  error?: string;         // Error message if hook failed
+  continue: boolean;
+  modifications?: HookModifications;
+  error?: string;
 }
 
 export interface HookDefinition {
