@@ -11,6 +11,10 @@ import { join } from "path";
 import { CLAUDE_PROJECTS_DIR, HOME_DIR } from "../constants";
 import { LRUCache } from "lru-cache";
 
+// Sub-agent depth tracking header
+export const SUBAGENT_DEPTH_HEADER = 'x-ccr-subagent-depth';
+export const SUBAGENT_ID_HEADER = 'x-ccr-subagent-id';
+
 const enc = get_encoding("cl100k_base");
 
 export const calculateTokenCount = (
@@ -181,6 +185,18 @@ const getUseModel = async (
 
 export const router = async (req: any, _res: any, context: any) => {
   const { config, event } = context;
+
+  // Track sub-agent depth from headers
+  const depthHeader = req.headers?.[SUBAGENT_DEPTH_HEADER];
+  if (depthHeader) {
+    req.subagentDepth = parseInt(depthHeader, 10) || 0;
+    req.isSubAgent = req.subagentDepth > 0;
+    req.subagentId = req.headers?.[SUBAGENT_ID_HEADER];
+  } else {
+    req.subagentDepth = 0;
+    req.isSubAgent = false;
+  }
+
   // Parse sessionId from metadata.user_id
   if (req.body.metadata?.user_id) {
     const parts = req.body.metadata.user_id.split("_session_");

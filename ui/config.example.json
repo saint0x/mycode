@@ -196,5 +196,13 @@
       "cleanupIntervalMs": 86400000
     }
   },
+  "SubAgent": {
+    "enabled": true,
+    "maxDepth": 3,
+    "inheritMemory": true,
+    "defaultTimeout": 120000,
+    "allowedTypes": ["research", "code", "review", "custom"],
+    "debugMode": false
+  },
   "NON_INTERACTIVE_MODE": false
 }

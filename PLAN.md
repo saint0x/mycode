@@ -1856,23 +1856,25 @@ async function autoExtractMemories(content: string, req: any, config: any) {
 
 ---
 
-### Phase 5: Sub-Agent Architecture (Optional Enhancement)
+### Phase 5: Sub-Agent Architecture ✅ COMPLETE
 
-#### 5.1 Create Sub-Agent Infrastructure
-- [ ] **5.1.1** Create `src/subagent/types.ts`
-- [ ] **5.1.2** Create `src/subagent/runner.ts`
-- [ ] **5.1.3** Create `src/subagent/configs.ts` (predefined types)
-- [ ] **5.1.4** Create spawn tool
+#### 5.1 Create Sub-Agent Infrastructure ✅ COMPLETE
+- [x] **5.1.1** Create `src/subagent/types.ts` - Type definitions
+- [x] **5.1.2** Create `src/subagent/runner.ts` - Execution logic with streaming
+- [x] **5.1.3** Create `src/subagent/configs.ts` - Research/Code/Review agent configs
+- [x] **5.1.4** Create `src/subagent/index.ts` - SubAgentAgent with spawn_subagent tool
 
-#### 5.2 Integrate Sub-Agent Spawning
-- [ ] **5.2.1** Register spawn tool with agent system
-- [ ] **5.2.2** Ensure sub-agents inherit memory context
-- [ ] **5.2.3** Implement summary generation on completion
-- [ ] **5.2.4** Handle sub-agent errors gracefully
+#### 5.2 Integrate Sub-Agent Spawning ✅ COMPLETE
+- [x] **5.2.1** Register spawn tool with agent system (src/agents/index.ts)
+- [x] **5.2.2** Ensure sub-agents inherit memory context (via getContextForRequest)
+- [x] **5.2.3** Implement summary generation on completion
+- [x] **5.2.4** Handle sub-agent errors gracefully
+- [x] **5.2.5** Add depth tracking in router (x-ccr-subagent-depth header)
+- [x] **5.2.6** Add tests (tests/subagent.test.ts - 24 tests)
 
 ---
 
-### Phase 6: Testing & Validation ✅ COMPLETE (82 tests passing)
+### Phase 6: Testing & Validation ✅ COMPLETE (106 tests passing)
 
 #### 6.1 Unit Tests ✅ COMPLETE
 - [x] **6.1.1** Test MemoryDatabase CRUD operations (tests/database.test.ts - 15 tests)
@@ -1953,15 +1955,20 @@ async function autoExtractMemories(content: string, req: any, config: any) {
 | `src/context/sections/instruction.section.ts` | Instructions builder | P1 |
 | `src/context/sections/emphasis.section.ts` | Emphasis builder | P1 |
 | `src/context/index.ts` | Context builder exports | P0 |
-| `src/subagent/types.ts` | Sub-agent types | P2 |
-| `src/subagent/runner.ts` | Sub-agent execution | P2 |
+| `src/subagent/types.ts` | Sub-agent types | P2 ✅ |
+| `src/subagent/configs.ts` | Predefined agent configs | P2 ✅ |
+| `src/subagent/runner.ts` | Sub-agent execution | P2 ✅ |
+| `src/subagent/index.ts` | SubAgentAgent | P2 ✅ |
+| `tests/subagent.test.ts` | Sub-agent tests (24 tests) | P2 ✅ |
 
 ### Files to Modify
 
 | File | Changes | Priority |
 |------|---------|----------|
 | `src/index.ts` | Initialize memory, process responses | P0 |
-| `src/utils/router.ts` | Call context builder | P0 |
+| `src/utils/router.ts` | Call context builder, depth tracking | P0 ✅ |
+| `src/agents/index.ts` | Register SubAgentAgent | P2 ✅ |
+| `ui/config.example.json` | Add SubAgent config | P2 ✅ |
 | `package.json` | Add dependencies | P0 |
 
 ---
