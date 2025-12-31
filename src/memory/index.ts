@@ -13,16 +13,39 @@ import type {
   MemoryConfig,
   EmbeddingProvider,
 } from './types';
+import {
+  MemoryError,
+  ErrorCode,
+  wrapMemoryError,
+  type CCRError,
+} from '../errors';
 
 export class MemoryService {
   private db: MemoryDatabase;
   private embedder: EmbeddingProvider;
   private config: MemoryConfig;
+  private initError: CCRError | null = null;
 
   constructor(config: MemoryConfig) {
     this.config = config;
-    this.db = MemoryDatabase.getInstance(config.dbPath);
-    this.embedder = createEmbeddingProvider(config.embedding);
+
+    try {
+      this.db = MemoryDatabase.getInstance(config.dbPath);
+    } catch (error) {
+      this.initError = wrapMemoryError(error, 'init_database', {
+        details: { dbPath: config.dbPath },
+      });
+      throw this.initError;
+    }
+
+    try {
+      this.embedder = createEmbeddingProvider(config.embedding);
+    } catch (error) {
+      this.initError = wrapMemoryError(error, 'init_embedding_provider', {
+        details: { provider: config.embedding.provider },
+      });
+      throw this.initError;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -39,10 +62,43 @@ export class MemoryService {
       metadata?: Record<string, any>;
     }
   ): Promise<Memory> {
-    // Generate embedding
-    const embedding = await this.embedder.embed(content);
-    const now = Date.now();
+    // Validate input
+    if (!content || content.trim().length === 0) {
+      throw new MemoryError('Cannot store empty memory content', {
+        code: ErrorCode.MEMORY_STORE_FAILED,
+        operation: 'remember',
+        scope: options.scope,
+        projectPath: options.projectPath,
+      });
+    }
 
+    if (options.scope === 'project' && !options.projectPath) {
+      throw new MemoryError('projectPath is required for project-scoped memories', {
+        code: ErrorCode.MEMORY_STORE_FAILED,
+        operation: 'remember',
+        scope: options.scope,
+        details: { category: options.category },
+      });
+    }
+
+    let embedding: Float32Array;
+    try {
+      embedding = await this.embedder.embed(content);
+    } catch (error) {
+      throw new MemoryError(
+        `Failed to generate embedding for memory: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          code: ErrorCode.MEMORY_STORE_FAILED,
+          operation: 'remember_embedding',
+          scope: options.scope,
+          projectPath: options.projectPath,
+          cause: error instanceof Error ? error : undefined,
+          details: { contentLength: content.length, category: options.category },
+        }
+      );
+    }
+
+    const now = Date.now();
     const memory: Memory = {
       id: uuid(),
       content,
@@ -56,18 +112,29 @@ export class MemoryService {
       metadata: options.metadata ?? {},
     };
 
-    // Save memory and embedding
-    this.db.transaction(() => {
-      if (options.scope === 'global') {
-        this.db.saveGlobalMemory(memory);
-      } else {
-        if (!options.projectPath) {
-          throw new Error('projectPath required for project-scoped memories');
+    try {
+      // Save memory and embedding in transaction
+      this.db.transaction(() => {
+        if (options.scope === 'global') {
+          this.db.saveGlobalMemory(memory);
+        } else {
+          this.db.saveProjectMemory(memory);
         }
-        this.db.saveProjectMemory(memory);
-      }
-      this.db.writeEmbedding(memory.id, embedding);
-    });
+        this.db.writeEmbedding(memory.id, embedding);
+      });
+    } catch (error) {
+      throw new MemoryError(
+        `Failed to store memory: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          code: ErrorCode.MEMORY_STORE_FAILED,
+          operation: 'remember_save',
+          scope: options.scope,
+          projectPath: options.projectPath,
+          cause: error instanceof Error ? error : undefined,
+          details: { memoryId: memory.id, category: options.category },
+        }
+      );
+    }
 
     return memory;
   }
@@ -86,35 +153,69 @@ export class MemoryService {
       minScore?: number;
     }
   ): Promise<MemorySearchResult[]> {
+    if (!query || query.trim().length === 0) {
+      // Return empty results for empty query instead of throwing
+      return [];
+    }
+
     const limit = options.limit ?? 10;
     const minScore = options.minScore ?? 0.3;
     const results: MemorySearchResult[] = [];
+    const errors: string[] = [];
 
     // Get query embedding
-    const queryEmbedding = await this.embedder.embed(query);
+    let queryEmbedding: Float32Array;
+    try {
+      queryEmbedding = await this.embedder.embed(query);
+    } catch (error) {
+      throw new MemoryError(
+        `Failed to generate embedding for query: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          code: ErrorCode.MEMORY_RETRIEVAL_FAILED,
+          operation: 'recall_embedding',
+          scope: options.scope === 'both' ? undefined : options.scope,
+          projectPath: options.projectPath,
+          cause: error instanceof Error ? error : undefined,
+          details: { queryLength: query.length },
+        }
+      );
+    }
 
     // Search global memories
     if (options.scope === 'global' || options.scope === 'both') {
-      const globalResults = this.searchMemories(
-        queryEmbedding,
-        query,
-        this.db.getAllGlobalMemories(),
-        this.db.getAllGlobalEmbeddings(),
-        limit
-      );
-      results.push(...globalResults);
+      try {
+        const globalResults = this.searchMemories(
+          queryEmbedding,
+          query,
+          this.db.getAllGlobalMemories(),
+          this.db.getAllGlobalEmbeddings(),
+          limit
+        );
+        results.push(...globalResults);
+      } catch (error) {
+        errors.push(`global: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
 
     // Search project memories
     if ((options.scope === 'project' || options.scope === 'both') && options.projectPath) {
-      const projectResults = this.searchMemories(
-        queryEmbedding,
-        query,
-        this.db.getProjectMemoriesByPath(options.projectPath),
-        this.db.getAllProjectEmbeddings(options.projectPath),
-        limit
-      );
-      results.push(...projectResults);
+      try {
+        const projectResults = this.searchMemories(
+          queryEmbedding,
+          query,
+          this.db.getProjectMemoriesByPath(options.projectPath),
+          this.db.getAllProjectEmbeddings(options.projectPath),
+          limit
+        );
+        results.push(...projectResults);
+      } catch (error) {
+        errors.push(`project: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    // Log errors but return partial results
+    if (errors.length > 0) {
+      console.warn('[MemoryService] Partial recall errors:', errors);
     }
 
     // Filter by categories
@@ -197,64 +298,107 @@ export class MemoryService {
   ): Promise<{
     globalMemories: Memory[];
     projectMemories: Memory[];
+    errors?: string[];
   }> {
     const maxGlobal = options?.maxGlobalMemories ?? this.config.autoInject.maxMemories;
     const maxProject = options?.maxProjectMemories ?? this.config.autoInject.maxMemories;
+    const errors: string[] = [];
 
-    // Extract query context from recent messages
-    const recentMessages = request.messages.slice(-5);
-    const queryContext = recentMessages
-      .filter((m: any) => m.role === 'user')
-      .map((m: any) => (typeof m.content === 'string' ? m.content : ''))
-      .join(' ');
+    // Extract query context from recent messages safely
+    let queryContext = '';
+    try {
+      const recentMessages = request.messages?.slice(-5) ?? [];
+      queryContext = recentMessages
+        .filter((m: any) => m?.role === 'user')
+        .map((m: any) => (typeof m?.content === 'string' ? m.content : ''))
+        .join(' ')
+        .trim();
+    } catch (error) {
+      errors.push(`Failed to extract query context: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     let globalMemories: Memory[] = [];
     let projectMemories: Memory[] = [];
 
+    // Fetch global memories
     if (queryContext && this.config.autoInject.global) {
-      const globalResults = await this.recall(queryContext, {
-        scope: 'global',
-        limit: maxGlobal,
-      });
-      globalMemories = globalResults.map(r => r.memory);
+      try {
+        const globalResults = await this.recall(queryContext, {
+          scope: 'global',
+          limit: maxGlobal,
+        });
+        globalMemories = globalResults.map(r => r.memory);
 
-      // Also include high-importance memories
-      const allGlobal = this.db.getAllGlobalMemories();
-      const topGlobalIds = new Set(globalMemories.map(m => m.id));
-      for (const m of allGlobal) {
-        if (!topGlobalIds.has(m.id) && m.importance >= 0.8 && globalMemories.length < maxGlobal) {
-          globalMemories.push(m);
+        // Also include high-importance memories
+        try {
+          const allGlobal = this.db.getAllGlobalMemories();
+          const topGlobalIds = new Set(globalMemories.map(m => m.id));
+          for (const m of allGlobal) {
+            if (!topGlobalIds.has(m.id) && m.importance >= 0.8 && globalMemories.length < maxGlobal) {
+              globalMemories.push(m);
+            }
+          }
+        } catch (error) {
+          errors.push(`Failed to fetch high-importance global memories: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } catch (error) {
+        errors.push(`Failed to recall global memories: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
+    // Fetch project memories
     if (queryContext && this.config.autoInject.project && request.projectPath) {
-      const projectResults = await this.recall(queryContext, {
-        scope: 'project',
-        projectPath: request.projectPath,
-        limit: maxProject,
-      });
-      projectMemories = projectResults.map(r => r.memory);
+      try {
+        const projectResults = await this.recall(queryContext, {
+          scope: 'project',
+          projectPath: request.projectPath,
+          limit: maxProject,
+        });
+        projectMemories = projectResults.map(r => r.memory);
 
-      // Also include high-importance project memories
-      const allProject = this.db.getProjectMemoriesByPath(request.projectPath);
-      const topProjectIds = new Set(projectMemories.map(m => m.id));
-      for (const m of allProject) {
-        if (!topProjectIds.has(m.id) && m.importance >= 0.8 && projectMemories.length < maxProject) {
-          projectMemories.push(m);
+        // Also include high-importance project memories
+        try {
+          const allProject = this.db.getProjectMemoriesByPath(request.projectPath);
+          const topProjectIds = new Set(projectMemories.map(m => m.id));
+          for (const m of allProject) {
+            if (!topProjectIds.has(m.id) && m.importance >= 0.8 && projectMemories.length < maxProject) {
+              projectMemories.push(m);
+            }
+          }
+        } catch (error) {
+          errors.push(`Failed to fetch high-importance project memories: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } catch (error) {
+        errors.push(`Failed to recall project memories: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
-    // Touch accessed memories
+    // Touch accessed memories (non-critical, don't fail on errors)
     for (const m of globalMemories) {
-      this.db.touchMemory(m.id, 'global');
+      try {
+        this.db.touchMemory(m.id, 'global');
+      } catch (error) {
+        // Silent failure for touch - non-critical operation
+      }
     }
     for (const m of projectMemories) {
-      this.db.touchMemory(m.id, 'project');
+      try {
+        this.db.touchMemory(m.id, 'project');
+      } catch (error) {
+        // Silent failure for touch - non-critical operation
+      }
     }
 
-    return { globalMemories, projectMemories };
+    // Log errors if any
+    if (errors.length > 0) {
+      console.warn('[MemoryService] Context retrieval errors:', errors);
+    }
+
+    return {
+      globalMemories,
+      projectMemories,
+      errors: errors.length > 0 ? errors : undefined,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -262,26 +406,66 @@ export class MemoryService {
   // ═══════════════════════════════════════════════════════════════════
 
   getGlobalMemory(id: string): Memory | null {
-    return this.db.getGlobalMemory(id);
+    try {
+      return this.db.getGlobalMemory(id);
+    } catch (error) {
+      throw wrapMemoryError(error, 'get_global_memory', {
+        scope: 'global',
+        details: { memoryId: id },
+      });
+    }
   }
 
   getProjectMemory(id: string): Memory | null {
-    return this.db.getProjectMemory(id);
+    try {
+      return this.db.getProjectMemory(id);
+    } catch (error) {
+      throw wrapMemoryError(error, 'get_project_memory', {
+        scope: 'project',
+        details: { memoryId: id },
+      });
+    }
   }
 
   getAllGlobalMemories(): Memory[] {
-    return this.db.getAllGlobalMemories();
+    try {
+      return this.db.getAllGlobalMemories();
+    } catch (error) {
+      throw wrapMemoryError(error, 'get_all_global_memories', {
+        scope: 'global',
+      });
+    }
   }
 
   getAllProjectMemories(projectPath: string): Memory[] {
-    return this.db.getProjectMemoriesByPath(projectPath);
+    try {
+      return this.db.getProjectMemoriesByPath(projectPath);
+    } catch (error) {
+      throw wrapMemoryError(error, 'get_all_project_memories', {
+        scope: 'project',
+        projectPath,
+      });
+    }
   }
 
   deleteMemory(id: string, scope: 'global' | 'project'): void {
-    if (scope === 'global') {
-      this.db.deleteGlobalMemory(id);
-    } else {
-      this.db.deleteProjectMemory(id);
+    try {
+      if (scope === 'global') {
+        this.db.deleteGlobalMemory(id);
+      } else {
+        this.db.deleteProjectMemory(id);
+      }
+    } catch (error) {
+      throw new MemoryError(
+        `Failed to delete ${scope} memory: ${id}`,
+        {
+          code: ErrorCode.MEMORY_DELETE_FAILED,
+          operation: 'delete_memory',
+          scope,
+          cause: error instanceof Error ? error : undefined,
+          details: { memoryId: id },
+        }
+      );
     }
   }
 
@@ -290,22 +474,43 @@ export class MemoryService {
   // ═══════════════════════════════════════════════════════════════════
 
   cleanup(): number {
-    return this.db.cleanup(
-      this.config.retention.minImportance,
-      this.config.retention.maxAgeDays
-    );
+    try {
+      return this.db.cleanup(
+        this.config.retention.minImportance,
+        this.config.retention.maxAgeDays
+      );
+    } catch (error) {
+      throw wrapMemoryError(error, 'cleanup', {
+        details: {
+          minImportance: this.config.retention.minImportance,
+          maxAgeDays: this.config.retention.maxAgeDays,
+        },
+      });
+    }
   }
 
   getStats(): {
     globalCount: number;
     projectCount: number;
     instanceId: string;
+    error?: string;
   } {
-    return {
-      globalCount: this.db.countGlobalMemories(),
-      projectCount: this.db.countProjectMemories(),
-      instanceId: this.db.instanceId(),
-    };
+    try {
+      return {
+        globalCount: this.db.countGlobalMemories(),
+        projectCount: this.db.countProjectMemories(),
+        instanceId: this.db.instanceId(),
+      };
+    } catch (error) {
+      // Return partial stats with error info
+      console.error('[MemoryService] Failed to get stats:', error);
+      return {
+        globalCount: -1,
+        projectCount: -1,
+        instanceId: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -344,21 +549,59 @@ export class MemoryService {
 // ═══════════════════════════════════════════════════════════════════
 
 let memoryService: MemoryService | null = null;
+let initializationError: CCRError | null = null;
 
 export function initMemoryService(config: MemoryConfig): MemoryService {
-  memoryService = new MemoryService(config);
-  return memoryService;
+  try {
+    memoryService = new MemoryService(config);
+    initializationError = null;
+    return memoryService;
+  } catch (error) {
+    initializationError = error instanceof MemoryError
+      ? error
+      : wrapMemoryError(error, 'init_memory_service', {
+          details: { dbPath: config.dbPath, provider: config.embedding.provider },
+        });
+    memoryService = null;
+    throw initializationError;
+  }
 }
 
 export function getMemoryService(): MemoryService {
   if (!memoryService) {
-    throw new Error('MemoryService not initialized. Call initMemoryService first.');
+    if (initializationError) {
+      throw new MemoryError(
+        `MemoryService initialization failed: ${initializationError.message}`,
+        {
+          code: ErrorCode.MEMORY_INIT_FAILED,
+          operation: 'get_memory_service',
+          cause: initializationError,
+        }
+      );
+    }
+    throw new MemoryError(
+      'MemoryService not initialized. Call initMemoryService first.',
+      {
+        code: ErrorCode.MEMORY_INIT_FAILED,
+        operation: 'get_memory_service',
+      }
+    );
   }
   return memoryService;
 }
 
 export function hasMemoryService(): boolean {
   return memoryService !== null;
+}
+
+export function getMemoryServiceError(): CCRError | null {
+  return initializationError;
+}
+
+export function resetMemoryService(): void {
+  memoryService = null;
+  initializationError = null;
+  MemoryDatabase.resetInstance();
 }
 
 // Re-export types

@@ -1874,7 +1874,7 @@ async function autoExtractMemories(content: string, req: any, config: any) {
 
 ---
 
-### Phase 6: Testing & Validation ✅ COMPLETE (106 tests passing)
+### Phase 6: Testing & Validation ✅ COMPLETE (141 tests passing)
 
 #### 6.1 Unit Tests ✅ COMPLETE
 - [x] **6.1.1** Test MemoryDatabase CRUD operations (tests/database.test.ts - 15 tests)
@@ -1907,11 +1907,29 @@ async function autoExtractMemories(content: string, req: any, config: any) {
 - [ ] **7.1.3** Add connection pooling
 - [ ] **7.1.4** Profile and optimize hot paths
 
-#### 7.2 Error Handling
-- [ ] **7.2.1** Graceful degradation if memory DB fails
-- [ ] **7.2.2** Fallback if embedding API fails
-- [ ] **7.2.3** Handle malformed memory data
-- [ ] **7.2.4** Add comprehensive logging
+#### 7.2 Error Handling ✅ COMPLETE
+- [x] **7.2.1** Graceful degradation if memory DB fails
+- [x] **7.2.2** Fallback if embedding API fails
+- [x] **7.2.3** Handle malformed memory data
+- [x] **7.2.4** Add comprehensive logging
+- [x] **7.2.5** Create centralized error types (`src/errors/types.ts`)
+  - CCRError base class with LLM-friendly formatting
+  - 10+ specialized error classes (DatabaseError, MemoryError, EmbeddingError, etc.)
+  - 50+ structured error codes organized by category
+  - Severity levels (LOW, MEDIUM, HIGH, FATAL)
+- [x] **7.2.6** Create error utilities (`src/errors/utils.ts`)
+  - Error wrapping functions for each subsystem
+  - Safe execution patterns (safeExecute, executeWithRetry)
+  - Error checking utilities (isErrorCode, isRecoverable, isRateLimitError)
+  - Error formatting for LLM, logs, and users
+- [x] **7.2.7** Implement error handling across all modules
+  - Memory Database: All 30+ database operations
+  - Memory Service: remember(), recall(), getContextForRequest()
+  - Embedding Providers: OpenAI and Ollama with retry logic
+  - Context Builder: Graceful degradation with error collection
+  - Sub-Agent System: Execution and streaming with structured errors
+  - Router/Main Server: Memory extraction with error tracking
+- [x] **7.2.8** Write comprehensive error tests (`tests/errors.test.ts` - 35 tests)
 
 #### 7.3 Monitoring
 - [ ] **7.3.1** Add metrics for memory operations
@@ -1960,6 +1978,10 @@ async function autoExtractMemories(content: string, req: any, config: any) {
 | `src/subagent/runner.ts` | Sub-agent execution | P2 ✅ |
 | `src/subagent/index.ts` | SubAgentAgent | P2 ✅ |
 | `tests/subagent.test.ts` | Sub-agent tests (24 tests) | P2 ✅ |
+| `src/errors/types.ts` | Centralized error types | P0 ✅ |
+| `src/errors/utils.ts` | Error utilities | P0 ✅ |
+| `src/errors/index.ts` | Error exports | P0 ✅ |
+| `tests/errors.test.ts` | Error handling tests (35 tests) | P0 ✅ |
 
 ### Files to Modify
 
@@ -2941,3 +2963,1811 @@ export function startPoolMonitoring(intervalMs: number = 60000) {
 - [ ] **8.5.10** Add prewarm call to server startup in `src/index.ts`
 - [ ] **8.5.11** Benchmark before/after pre-allocation
 - [ ] **8.5.12** Profile with Chrome DevTools to verify no runtime allocs in hot path
+
+---
+
+## Phase 9: Tool Robustness & Memory Tools Enhancement
+
+> **⚠️ AGENT CONTRIBUTION NOTICE**
+>
+> This section was added by **Claude Opus 4.5** (agent session: 2025-12-31) as part of a tool paradigm review.
+> The analysis compared CCR's implementation against Claude Code's 14+ native tools to identify gaps and improvements.
+>
+> **Context**: During a plan mode review, the user requested a comprehensive analysis of the tool ecosystem.
+> This phase addresses robustness issues found in the memory system's `<remember>` tag approach.
+>
+> **Reference**: See `/Users/deepsaint/.claude/plans/jazzy-seeking-bear.md` for the full analysis.
+
+### 9.0 Problem Statement
+
+The current memory system relies on `<remember>` tags embedded in LLM responses to save memories. This approach has several robustness issues:
+
+1. **Tags visible to users** - `<remember>` tags appear in user-visible output
+2. **No explicit query capability** - Agent cannot ask "what do I remember about X?"
+3. **No delete capability** - Agent cannot remove stale/incorrect memories
+4. **Fragile regex parsing** - Tags must match exact format or fail silently
+5. **Sub-agents don't inherit memory** - Phase 5's memory inheritance incomplete
+
+### 9.1 Claude Code Tool Reference
+
+Based on research, Claude Code has **14 core tools**:
+
+| Category | Tools |
+|----------|-------|
+| **File Operations** | Read, Write, Edit, MultiEdit, Glob, Grep, LS |
+| **Notebooks** | NotebookRead, NotebookEdit |
+| **Execution** | Bash, BashOutput, KillShell |
+| **Web** | WebFetch, WebSearch |
+| **Planning** | TodoWrite, ExitPlanMode |
+| **User Interaction** | AskUserQuestion |
+| **Agent** | Task (sub-agents), Skill |
+| **IDE** | LSP, getDiagnostics, executeCode |
+| **MCP** | ListMcpResources, ReadMcpResource |
+
+**Sources**:
+- https://gist.github.com/bgauryy/0cdb9aa337d01ae5bd0c803943aa36bd
+- https://gist.github.com/wong2/e0f34aac66caf890a332f7b6f9e2ba8f
+
+---
+
+### 9.2 Implementation Phases
+
+#### Phase 9.2.1: Lenient Tag Parsing (Foundation)
+
+**File:** `src/index.ts`
+
+Replace rigid regex with flexible parser that handles:
+- Attribute order variations (`scope` before or after `category`)
+- Extra whitespace
+- Single or double quotes
+
+```typescript
+// Before (rigid):
+const rememberRegex = /<remember\s+scope="(global|project)"\s+category="(\w+)">([\s\S]*?)<\/remember>/g;
+
+// After (flexible):
+function parseRememberTags(content: string): Array<{scope: string, category: string, content: string}> {
+  const results: Array<{scope: string, category: string, content: string}> = [];
+  const tagRegex = /<remember\s+([^>]*)>([\s\S]*?)<\/remember>/gi;
+  let match;
+
+  while ((match = tagRegex.exec(content)) !== null) {
+    const attrs = match[1];
+    const innerContent = match[2];
+
+    // Extract attributes flexibly
+    const scopeMatch = attrs.match(/scope\s*=\s*["'](global|project)["']/i);
+    const categoryMatch = attrs.match(/category\s*=\s*["'](\w+)["']/i);
+
+    if (scopeMatch && categoryMatch) {
+      results.push({
+        scope: scopeMatch[1].toLowerCase(),
+        category: categoryMatch[1].toLowerCase(),
+        content: innerContent.trim()
+      });
+    }
+  }
+
+  return results;
+}
+```
+
+**Checklist:**
+- [ ] **9.2.1.1** Create `parseRememberTags()` function
+- [ ] **9.2.1.2** Update `extractMemoriesFromResponse()` to use new parser
+- [ ] **9.2.1.3** Add tests for various tag formats
+- [ ] **9.2.1.4** Add warning log for malformed tags
+
+---
+
+#### Phase 9.2.2: Strip Remember Tags from Output
+
+**File:** `src/index.ts`
+
+Add tag stripping AFTER memory extraction to hide them from users:
+
+```typescript
+function stripRememberTags(content: string): string {
+  return content.replace(/<remember\s+[^>]*>[\s\S]*?<\/remember>/gi, '').trim();
+}
+
+// In SSE response processing, after extractMemoriesFromResponse():
+// Modify the text content to strip tags before sending to user
+```
+
+**Checklist:**
+- [ ] **9.2.2.1** Create `stripRememberTags()` function
+- [ ] **9.2.2.2** Integrate into SSE stream processing (lines 359-485)
+- [ ] **9.2.2.3** Handle streaming chunks that split tags
+- [ ] **9.2.2.4** Add tests verifying tags don't appear in output
+
+---
+
+#### Phase 9.2.3: Add Memory Tools (ccr_remember, ccr_recall, ccr_forget)
+
+**New file:** `src/agents/memory.agent.ts`
+
+Create a new MemoryAgent that provides explicit tool access to the memory system:
+
+```typescript
+import { IAgent, ITool } from './type';
+import { getMemoryService, hasMemoryService } from '../memory';
+import type { MemoryCategory } from '../memory/types';
+
+const MEMORY_TOOLS: ITool[] = [
+  {
+    name: 'ccr_remember',
+    description: 'Save info to persistent memory. Returns confirmation.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'What to remember' },
+        scope: { type: 'string', enum: ['global', 'project'] },
+        category: {
+          type: 'string',
+          enum: ['preference', 'pattern', 'decision', 'architecture', 'knowledge', 'error', 'workflow']
+        }
+      },
+      required: ['content', 'scope', 'category']
+    },
+    handler: async (args, ctx) => {
+      const memoryService = getMemoryService();
+      const memory = await memoryService.remember(args.content, {
+        scope: args.scope,
+        projectPath: ctx.req.projectPath,
+        category: args.category as MemoryCategory,
+        metadata: { sessionId: ctx.req.sessionId, source: 'tool-explicit' }
+      });
+      return JSON.stringify({ success: true, id: memory.id, saved: args.content.slice(0, 100) });
+    }
+  },
+  {
+    name: 'ccr_recall',
+    description: 'Query memories by semantic search.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        scope: { type: 'string', enum: ['global', 'project', 'both'], default: 'both' },
+        limit: { type: 'number', default: 5, maximum: 20 }
+      },
+      required: ['query']
+    },
+    handler: async (args, ctx) => {
+      const memoryService = getMemoryService();
+      const results = await memoryService.recall(args.query, {
+        scope: args.scope || 'both',
+        projectPath: ctx.req.projectPath,
+        limit: args.limit || 5
+      });
+      return JSON.stringify(results.map(r => ({
+        id: r.memory.id,
+        content: r.memory.content,
+        category: r.memory.category,
+        scope: r.memory.scope,
+        score: r.score.toFixed(2)
+      })));
+    }
+  },
+  {
+    name: 'ccr_forget',
+    description: 'Delete a memory by ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        memoryId: { type: 'string', description: 'Memory ID to delete' }
+      },
+      required: ['memoryId']
+    },
+    handler: async (args, ctx) => {
+      const memoryService = getMemoryService();
+      const deleted = await memoryService.delete(args.memoryId);
+      return JSON.stringify({ success: deleted, id: args.memoryId });
+    }
+  }
+];
+
+export const memoryAgent: IAgent = {
+  name: 'memoryAgent',
+  tools: new Map(MEMORY_TOOLS.map(t => [t.name, t])),
+
+  shouldHandle: (req, config) => {
+    return config.Memory?.enabled && hasMemoryService();
+  },
+
+  reqHandler: (req, config) => {
+    // Tools are injected via the standard agent pipeline
+  }
+};
+```
+
+**Also requires:**
+
+**File:** `src/memory/database.ts` - Add delete method:
+```typescript
+deleteMemory(id: string, table: 'global_memories' | 'project_memories'): boolean {
+  const stmt = this.db.prepare(`DELETE FROM ${table} WHERE id = ?`);
+  const result = stmt.run(id);
+  return result.changes > 0;
+}
+```
+
+**File:** `src/memory/index.ts` - Add delete method to MemoryService:
+```typescript
+async delete(memoryId: string): Promise<boolean> {
+  // Try both tables
+  let deleted = this.db.deleteMemory(memoryId, 'global_memories');
+  if (!deleted) {
+    deleted = this.db.deleteMemory(memoryId, 'project_memories');
+  }
+  return deleted;
+}
+```
+
+**File:** `src/agents/index.ts` - Register the memoryAgent
+
+**Checklist:**
+- [ ] **9.2.3.1** Create `src/agents/memory.agent.ts`
+- [ ] **9.2.3.2** Add `deleteMemory()` to database.ts
+- [ ] **9.2.3.3** Add `delete()` to MemoryService
+- [ ] **9.2.3.4** Register memoryAgent in agents/index.ts
+- [ ] **9.2.3.5** Add tests for all three tools
+- [ ] **9.2.3.6** Update instruction.section.ts to mention tools
+
+---
+
+#### Phase 9.2.4: Sub-Agent Memory Inheritance
+
+**File:** `src/subagent/index.ts`
+
+Ensure sub-agents receive memory context:
+
+```typescript
+import { getContextBuilder, hasContextBuilder } from '../context';
+
+async function buildSubAgentContext(systemPrompt: string, ctx: any): Promise<string> {
+  if (!hasContextBuilder()) return systemPrompt;
+
+  const builder = getContextBuilder();
+  const contextResult = await builder.build(systemPrompt, {
+    messages: [],
+    projectPath: ctx.req.projectPath,
+    sessionId: ctx.req.sessionId
+  });
+
+  return contextResult.systemPrompt;
+}
+```
+
+**File:** `src/subagent/configs.ts` - Add memory tools to allowed lists:
+```typescript
+// Research agents can recall but not modify
+researchAllowedTools: ['Read', 'Glob', 'Grep', 'LSP', 'WebSearch', 'WebFetch', 'ccr_recall'],
+
+// Code agents get full memory access
+codeAllowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'LSP', 'NotebookEdit',
+                   'ccr_remember', 'ccr_recall', 'ccr_forget'],
+
+// Review agents can only recall
+reviewAllowedTools: ['Read', 'Glob', 'Grep', 'LSP', 'ccr_recall'],
+```
+
+**Checklist:**
+- [ ] **9.2.4.1** Add `buildSubAgentContext()` function
+- [ ] **9.2.4.2** Update spawn_subagent handler to use it
+- [ ] **9.2.4.3** Add ccr_recall to research/review allowed tools
+- [ ] **9.2.4.4** Add full memory tools to code agent allowed tools
+- [ ] **9.2.4.5** Add tests for sub-agent memory inheritance
+
+---
+
+### 9.3 Critical Files Summary
+
+| File | Phase | Changes |
+|------|-------|---------|
+| `src/index.ts` | 9.2.1, 9.2.2 | Lenient parsing, tag stripping |
+| `src/agents/memory.agent.ts` | 9.2.3 | **NEW** - Memory tools |
+| `src/agents/index.ts` | 9.2.3 | Register memoryAgent |
+| `src/memory/index.ts` | 9.2.3 | Add `delete()` method |
+| `src/memory/database.ts` | 9.2.3 | Add `deleteMemory()` method |
+| `src/subagent/index.ts` | 9.2.4 | Memory context injection |
+| `src/subagent/configs.ts` | 9.2.4 | Memory tools in allowed lists |
+| `src/context/sections/instruction.section.ts` | 9.2.3 | Update instructions |
+
+---
+
+### 9.4 Execution Order
+
+1. **Phase 9.2.1** - Lenient tag parsing (foundation for other phases)
+2. **Phase 9.2.2** - Strip tags from output (uses lenient parser)
+3. **Phase 9.2.3** - Add memory tools (requires delete method)
+4. **Phase 9.2.4** - Sub-agent memory inheritance (depends on tools)
+
+---
+
+### 9.5 Testing Checklist
+
+- [ ] `<remember>` tags no longer visible in user output
+- [ ] Tags with reversed attribute order parse correctly
+- [ ] Tags with single quotes parse correctly
+- [ ] Extra whitespace in tags is handled
+- [ ] `ccr_remember` tool saves memory and returns confirmation with ID
+- [ ] `ccr_recall` tool queries memories with relevance scores
+- [ ] `ccr_forget` tool deletes memory by ID and confirms
+- [ ] Sub-agents receive injected memory context in system prompt
+- [ ] Research sub-agents can only use `ccr_recall`
+- [ ] Code sub-agents have full memory tool access
+- [ ] Review sub-agents can only use `ccr_recall`
+- [ ] Memory tools don't overload context (compact descriptions)
+
+---
+
+### 9.6 ADR-004: Hybrid Memory Access (Auto-Inject + Tools)
+
+**Decision**: Keep automatic memory injection AND add optional explicit tools.
+
+**Rationale**:
+- Preserves zero-friction automatic injection for most use cases (ADR-001)
+- Adds explicit control when agent needs it (query, delete, confirmation)
+- Tools are optional - agent can still use `<remember>` tags if preferred
+- Gives agent flexibility to choose approach based on situation
+
+**Consequences**:
+- Slightly more complex memory instructions
+- Two ways to save memories (tags vs tool) - need clear guidance
+- Additional token overhead for tool definitions (~200 tokens)
+
+**Guidance for Agent**:
+- Use automatic injection for reading (it's already there)
+- Use `<remember>` tags for simple saves during response
+- Use `ccr_remember` tool when confirmation is needed
+- Use `ccr_recall` tool for explicit queries not covered by auto-inject
+- Use `ccr_forget` tool to clean up outdated memories
+
+---
+
+## Phase 10: Configuration Centralization & Extensibility System
+
+> **⚠️ AGENT CONTRIBUTION NOTICE**
+>
+> This section was added by **Claude Opus 4.5** (agent session: 2025-12-31) during a plan mode session.
+> The user requested investigation of the config system and centralization to `~/mycode/`.
+>
+> **Context**: User wants all CCR configuration and data files centralized in `~/mycode/` instead of
+> `~/.claude-code-router/`, plus support for Claude Code-like hooks, plugins, and skills.
+>
+> **Reference**: See `/Users/deepsaint/.claude/plans/logical-doodling-swing.md` for the detailed plan.
+
+### 10.0 Problem Statement
+
+The current configuration system has several limitations:
+
+1. **Scattered config location** - Config in `~/.claude-code-router/` is hidden and not user-friendly
+2. **No extensibility hooks** - No way to run custom code at lifecycle points (PreToolUse, SessionStart, etc.)
+3. **No plugin system** - Can't distribute/share reusable extensions
+4. **No skills/commands** - No slash command registration like Claude Code has
+5. **PLUGINS_DIR defined but unused** - `src/constants.ts:8` defines it but nothing loads from it
+
+### 10.1 Current State Analysis
+
+**Config location**: `~/.claude-code-router/config.json`
+**Data files**: `~/.claude-code-router/` (memory.db, plugins/, logs/)
+
+**Key constants defined in `src/constants.ts`**:
+```typescript
+export const HOME_DIR = path.join(os.homedir(), ".claude-code-router");
+export const CONFIG_FILE = path.join(HOME_DIR, "config.json");
+export const PLUGINS_DIR = path.join(HOME_DIR, "plugins");  // Unused!
+export const MEMORY_DB_PATH = path.join(HOME_DIR, "memory.db");
+```
+
+**Config loading in `src/utils/index.ts`**:
+- `initDir()` - Creates HOME_DIR, PLUGINS_DIR, logs/
+- `readConfigFile()` - Reads and parses with JSON5 + env var interpolation
+- `writeConfigFile()` - Writes config with backup
+
+**Existing extensibility** (already implemented):
+- Agent system with `IAgent` interface (`src/agents/type.ts`)
+- Custom router support via `CUSTOM_ROUTER_PATH`
+- Transformer plugins (already working)
+- Sub-agent system (`src/subagent/`)
+
+---
+
+### 10.2 Implementation Phases
+
+#### Phase 10.2.1: Update Path Constants
+
+**File**: `src/constants.ts`
+
+```typescript
+import path from "node:path";
+import os from "node:os";
+
+// NEW: Primary config location
+export const HOME_DIR = path.join(os.homedir(), "mycode");
+
+// LEGACY: For migration support
+export const LEGACY_HOME_DIR = path.join(os.homedir(), ".claude-code-router");
+
+// Core paths (all relative to HOME_DIR)
+export const CONFIG_FILE = path.join(HOME_DIR, "config.json");
+export const PLUGINS_DIR = path.join(HOME_DIR, "plugins");
+export const PID_FILE = path.join(HOME_DIR, '.claude-code-router.pid');
+export const MEMORY_DB_PATH = path.join(HOME_DIR, "memory.db");
+export const LOGS_DIR = path.join(HOME_DIR, "logs");
+
+// NEW: Extensibility directories
+export const HOOKS_DIR = path.join(HOME_DIR, "hooks");
+export const SKILLS_DIR = path.join(HOME_DIR, "skills");
+export const COMMANDS_DIR = path.join(HOME_DIR, "commands");
+
+// Claude projects directory (unchanged)
+export const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects");
+
+// Environment variable override support
+export const CCR_HOME = process.env.CCR_HOME || HOME_DIR;
+
+export const DEFAULT_CONFIG = {
+  LOG: false,
+  OPENAI_API_KEY: "",
+  OPENAI_BASE_URL: "",
+  OPENAI_MODEL: "",
+};
+```
+
+**Checklist:**
+- [ ] **10.2.1.1** Add `LEGACY_HOME_DIR` constant
+- [ ] **10.2.1.2** Change `HOME_DIR` to `~/mycode`
+- [ ] **10.2.1.3** Add `HOOKS_DIR`, `SKILLS_DIR`, `COMMANDS_DIR`
+- [ ] **10.2.1.4** Add `LOGS_DIR` constant (was inline)
+- [ ] **10.2.1.5** Add `CCR_HOME` env var override support
+
+---
+
+#### Phase 10.2.2: Migration Utility
+
+**New file**: `src/utils/migration.ts`
+
+```typescript
+import fs from "node:fs/promises";
+import path from "node:path";
+import { HOME_DIR, LEGACY_HOME_DIR, CONFIG_FILE } from "../constants";
+
+export interface MigrationResult {
+  success: boolean;
+  migrated: string[];
+  errors: string[];
+  backupPath?: string;
+}
+
+/**
+ * Check if legacy config directory exists
+ */
+export async function detectLegacyConfig(): Promise<boolean> {
+  try {
+    await fs.access(path.join(LEGACY_HOME_DIR, "config.json"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if new config directory already exists
+ */
+export async function detectNewConfig(): Promise<boolean> {
+  try {
+    await fs.access(CONFIG_FILE);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create timestamped backup of legacy directory
+ */
+export async function backupLegacyDir(): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = `${LEGACY_HOME_DIR}.backup-${timestamp}`;
+  await fs.cp(LEGACY_HOME_DIR, backupPath, { recursive: true });
+  return backupPath;
+}
+
+/**
+ * Migrate all data from legacy location to new location
+ */
+export async function migrateFromLegacy(): Promise<MigrationResult> {
+  const result: MigrationResult = {
+    success: false,
+    migrated: [],
+    errors: []
+  };
+
+  try {
+    // Step 1: Backup legacy directory
+    result.backupPath = await backupLegacyDir();
+    console.log(`[Migration] Backed up to: ${result.backupPath}`);
+
+    // Step 2: Create new directory structure
+    await fs.mkdir(HOME_DIR, { recursive: true });
+    await fs.mkdir(path.join(HOME_DIR, "plugins"), { recursive: true });
+    await fs.mkdir(path.join(HOME_DIR, "logs"), { recursive: true });
+    await fs.mkdir(path.join(HOME_DIR, "hooks"), { recursive: true });
+    await fs.mkdir(path.join(HOME_DIR, "skills"), { recursive: true });
+    await fs.mkdir(path.join(HOME_DIR, "commands"), { recursive: true });
+
+    // Step 3: Copy files
+    const filesToMigrate = [
+      "config.json",
+      "memory.db",
+      ".claude-code-router.pid"
+    ];
+
+    for (const file of filesToMigrate) {
+      const src = path.join(LEGACY_HOME_DIR, file);
+      const dst = path.join(HOME_DIR, file);
+      try {
+        await fs.access(src);
+        await fs.copyFile(src, dst);
+        result.migrated.push(file);
+        console.log(`[Migration] Copied: ${file}`);
+      } catch {
+        // File doesn't exist, skip
+      }
+    }
+
+    // Step 4: Copy directories
+    const dirsToCopy = ["plugins", "logs"];
+    for (const dir of dirsToCopy) {
+      const src = path.join(LEGACY_HOME_DIR, dir);
+      const dst = path.join(HOME_DIR, dir);
+      try {
+        await fs.access(src);
+        await fs.cp(src, dst, { recursive: true });
+        result.migrated.push(`${dir}/`);
+        console.log(`[Migration] Copied directory: ${dir}/`);
+      } catch {
+        // Directory doesn't exist, skip
+      }
+    }
+
+    result.success = true;
+    console.log(`[Migration] Complete! Migrated ${result.migrated.length} items.`);
+
+  } catch (error: any) {
+    result.errors.push(error.message);
+    console.error(`[Migration] Failed:`, error.message);
+  }
+
+  return result;
+}
+
+/**
+ * Check if migration is needed and prompt user
+ */
+export async function checkAndMigrate(interactive: boolean = true): Promise<boolean> {
+  const hasLegacy = await detectLegacyConfig();
+  const hasNew = await detectNewConfig();
+
+  if (hasNew) {
+    // Already using new location
+    return false;
+  }
+
+  if (!hasLegacy) {
+    // Fresh install, no migration needed
+    return false;
+  }
+
+  // Need to migrate
+  console.log(`\n[CCR] Found legacy config at ${LEGACY_HOME_DIR}`);
+  console.log(`[CCR] Migrating to new location: ${HOME_DIR}\n`);
+
+  const result = await migrateFromLegacy();
+
+  if (result.success) {
+    console.log(`\n[CCR] Migration successful!`);
+    console.log(`[CCR] Backup saved at: ${result.backupPath}`);
+    console.log(`[CCR] You can delete the old directory when ready.\n`);
+  }
+
+  return result.success;
+}
+```
+
+**Checklist:**
+- [ ] **10.2.2.1** Create `src/utils/migration.ts`
+- [ ] **10.2.2.2** Implement `detectLegacyConfig()`
+- [ ] **10.2.2.3** Implement `detectNewConfig()`
+- [ ] **10.2.2.4** Implement `backupLegacyDir()`
+- [ ] **10.2.2.5** Implement `migrateFromLegacy()`
+- [ ] **10.2.2.6** Implement `checkAndMigrate()`
+- [ ] **10.2.2.7** Add tests for migration functions
+
+---
+
+#### Phase 10.2.3: Update Config Loading
+
+**File**: `src/utils/index.ts`
+
+Update `initDir()` to create new directory structure and trigger migration:
+
+```typescript
+import {
+  CONFIG_FILE,
+  DEFAULT_CONFIG,
+  HOME_DIR,
+  PLUGINS_DIR,
+  HOOKS_DIR,
+  SKILLS_DIR,
+  COMMANDS_DIR,
+} from "../constants";
+import { checkAndMigrate } from "./migration";
+
+export const initDir = async () => {
+  // Check for and perform migration if needed
+  await checkAndMigrate();
+
+  // Create all required directories
+  await ensureDir(HOME_DIR);
+  await ensureDir(PLUGINS_DIR);
+  await ensureDir(path.join(HOME_DIR, "logs"));
+  await ensureDir(HOOKS_DIR);
+  await ensureDir(SKILLS_DIR);
+  await ensureDir(COMMANDS_DIR);
+};
+```
+
+Also update the hardcoded message in `readConfigFile()` (line ~105):
+
+```typescript
+// Change from:
+console.log("Created minimal default configuration file at ~/.claude-code-router/config.json");
+
+// To:
+console.log(`Created minimal default configuration file at ${CONFIG_FILE}`);
+```
+
+**Checklist:**
+- [ ] **10.2.3.1** Import migration utilities
+- [ ] **10.2.3.2** Update `initDir()` to call `checkAndMigrate()`
+- [ ] **10.2.3.3** Add new directories to `initDir()`
+- [ ] **10.2.3.4** Update hardcoded path strings to use constants
+- [ ] **10.2.3.5** Add HOOKS_DIR, SKILLS_DIR, COMMANDS_DIR imports
+
+---
+
+#### Phase 10.2.4: Hooks System
+
+**New file**: `src/hooks/types.ts`
+
+```typescript
+export type HookEvent =
+  | 'PreToolUse'        // Before tool execution
+  | 'PostToolUse'       // After tool execution
+  | 'PreRoute'          // Before routing decision (CCR-specific)
+  | 'PostRoute'         // After routing decision (CCR-specific)
+  | 'SessionStart'      // Session begins
+  | 'SessionEnd'        // Session ends
+  | 'PreResponse'       // Before sending response
+  | 'PostResponse'      // After response sent
+  | 'PreCompact'        // Before context compaction
+  | 'Notification';     // System notifications
+
+export interface HookContext {
+  event: HookEvent;
+  request?: any;
+  response?: any;
+  config: any;
+  sessionId?: string;
+  projectPath?: string;
+  toolName?: string;
+  toolInput?: any;
+  toolOutput?: any;
+  routeDecision?: string;
+  timestamp: number;
+}
+
+export interface HookResult {
+  continue: boolean;      // Whether to continue processing
+  modified?: any;         // Modified data to use
+  error?: string;         // Error message if hook failed
+}
+
+export interface HookDefinition {
+  name: string;
+  event: HookEvent | HookEvent[];
+  priority?: number;      // Higher = runs first (default: 0)
+  timeout?: number;       // Timeout in ms (default: 5000)
+  enabled?: boolean;      // Default: true
+  handler: string | HookHandler;  // Path to JS file or inline function
+}
+
+export type HookHandler = (context: HookContext) => Promise<HookResult>;
+
+export interface HookConfig {
+  enabled: boolean;
+  directory?: string;
+  timeout?: number;
+  hooks?: HookDefinition[];
+}
+```
+
+**New file**: `src/hooks/index.ts`
+
+```typescript
+import fs from "node:fs/promises";
+import path from "node:path";
+import { HookEvent, HookDefinition, HookContext, HookResult, HookConfig, HookHandler } from "./types";
+import { HOOKS_DIR } from "../constants";
+
+export class HooksManager {
+  private hooks: Map<HookEvent, HookDefinition[]> = new Map();
+  private config: HookConfig;
+
+  constructor(config: HookConfig = { enabled: true }) {
+    this.config = config;
+  }
+
+  /**
+   * Register a hook
+   */
+  registerHook(hook: HookDefinition): void {
+    const events = Array.isArray(hook.event) ? hook.event : [hook.event];
+
+    for (const event of events) {
+      if (!this.hooks.has(event)) {
+        this.hooks.set(event, []);
+      }
+
+      const eventHooks = this.hooks.get(event)!;
+      eventHooks.push(hook);
+
+      // Sort by priority (higher first)
+      eventHooks.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    }
+
+    console.log(`[Hooks] Registered: ${hook.name} for ${events.join(', ')}`);
+  }
+
+  /**
+   * Unregister a hook by name
+   */
+  unregisterHook(name: string): void {
+    for (const [event, hooks] of this.hooks) {
+      const filtered = hooks.filter(h => h.name !== name);
+      this.hooks.set(event, filtered);
+    }
+  }
+
+  /**
+   * Load hooks from directory
+   */
+  async loadHooksFromDir(dir: string = HOOKS_DIR): Promise<void> {
+    try {
+      const files = await fs.readdir(dir);
+
+      for (const file of files) {
+        if (!file.endsWith('.js') && !file.endsWith('.ts')) continue;
+
+        const filePath = path.join(dir, file);
+        try {
+          const hookModule = require(filePath);
+          const hook = hookModule.default || hookModule;
+
+          if (this.isValidHook(hook)) {
+            this.registerHook({
+              ...hook,
+              handler: filePath  // Store path for reloading
+            });
+          }
+        } catch (e: any) {
+          console.error(`[Hooks] Failed to load ${file}:`, e.message);
+        }
+      }
+    } catch {
+      // Directory doesn't exist yet, that's OK
+    }
+  }
+
+  /**
+   * Execute all hooks for an event
+   */
+  async executeHooks(event: HookEvent, context: Partial<HookContext>): Promise<HookResult> {
+    if (!this.config.enabled) {
+      return { continue: true };
+    }
+
+    const eventHooks = this.hooks.get(event) || [];
+    const fullContext: HookContext = {
+      event,
+      config: context.config || {},
+      timestamp: Date.now(),
+      ...context
+    };
+
+    for (const hook of eventHooks) {
+      if (hook.enabled === false) continue;
+
+      try {
+        const handler = await this.resolveHandler(hook.handler);
+        const timeout = hook.timeout ?? this.config.timeout ?? 5000;
+
+        const result = await Promise.race([
+          handler(fullContext),
+          new Promise<HookResult>((_, reject) =>
+            setTimeout(() => reject(new Error('Hook timeout')), timeout)
+          )
+        ]);
+
+        if (!result.continue) {
+          console.log(`[Hooks] ${hook.name} blocked execution`);
+          return result;
+        }
+
+        // Apply modifications if any
+        if (result.modified) {
+          Object.assign(fullContext, { request: result.modified });
+        }
+
+      } catch (e: any) {
+        console.error(`[Hooks] ${hook.name} failed:`, e.message);
+        // Continue on hook failure (non-blocking)
+      }
+    }
+
+    return { continue: true };
+  }
+
+  /**
+   * Get hooks registered for an event
+   */
+  getHooksForEvent(event: HookEvent): HookDefinition[] {
+    return this.hooks.get(event) || [];
+  }
+
+  /**
+   * Get all registered hooks
+   */
+  getAllHooks(): HookDefinition[] {
+    const all: HookDefinition[] = [];
+    for (const hooks of this.hooks.values()) {
+      for (const hook of hooks) {
+        if (!all.find(h => h.name === hook.name)) {
+          all.push(hook);
+        }
+      }
+    }
+    return all;
+  }
+
+  private async resolveHandler(handler: string | HookHandler): Promise<HookHandler> {
+    if (typeof handler === 'function') {
+      return handler;
+    }
+
+    // Load from file path
+    const module = require(handler);
+    return module.default || module.handler || module;
+  }
+
+  private isValidHook(obj: any): obj is HookDefinition {
+    return obj && typeof obj.name === 'string' && obj.event;
+  }
+}
+
+// Singleton instance
+let hooksManager: HooksManager | null = null;
+
+export function initHooksManager(config: HookConfig): HooksManager {
+  hooksManager = new HooksManager(config);
+  return hooksManager;
+}
+
+export function getHooksManager(): HooksManager {
+  if (!hooksManager) {
+    throw new Error('HooksManager not initialized');
+  }
+  return hooksManager;
+}
+
+export function hasHooksManager(): boolean {
+  return hooksManager !== null;
+}
+
+export * from './types';
+```
+
+**Checklist:**
+- [ ] **10.2.4.1** Create `src/hooks/types.ts`
+- [ ] **10.2.4.2** Create `src/hooks/index.ts`
+- [ ] **10.2.4.3** Implement `HooksManager` class
+- [ ] **10.2.4.4** Implement hook loading from directory
+- [ ] **10.2.4.5** Implement hook execution with timeout
+- [ ] **10.2.4.6** Add singleton exports
+- [ ] **10.2.4.7** Add tests for hooks system
+
+---
+
+#### Phase 10.2.5: Plugin System
+
+**New file**: `src/plugins/types.ts`
+
+```typescript
+import { HookDefinition } from '../hooks/types';
+import { IAgent } from '../agents/type';
+
+export interface PluginManifest {
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+
+  // Capabilities
+  hooks?: HookDefinition[];
+  skills?: SkillDefinition[];
+  commands?: CommandDefinition[];
+  agents?: string[];  // Paths to agent files
+
+  // Configuration
+  config?: Record<string, any>;
+
+  // Dependencies
+  dependencies?: string[];
+}
+
+export interface SkillDefinition {
+  name: string;
+  description: string;
+  trigger: string | RegExp;  // e.g., "/review-pr"
+
+  // Execution
+  handler: string;  // Path to handler file
+
+  // Configuration
+  args?: ArgumentSchema[];
+  requiresProject?: boolean;
+  timeout?: number;
+}
+
+export interface CommandDefinition {
+  name: string;           // e.g., "commit", "review-pr"
+  description: string;
+  aliases?: string[];
+  args?: ArgumentSchema[];
+  handler: string;        // Path to handler file
+  hidden?: boolean;
+  category?: string;
+}
+
+export interface ArgumentSchema {
+  name: string;
+  type: 'string' | 'number' | 'boolean';
+  description?: string;
+  required?: boolean;
+  default?: any;
+}
+
+export interface LoadedPlugin {
+  manifest: PluginManifest;
+  path: string;
+  enabled: boolean;
+  hooks: HookDefinition[];
+  skills: SkillDefinition[];
+  commands: CommandDefinition[];
+  agents: IAgent[];
+}
+
+export interface PluginConfig {
+  enabled: boolean;
+  directory?: string;
+  autoload?: boolean;
+  disabled?: string[];  // List of disabled plugin names
+}
+```
+
+**New file**: `src/plugins/index.ts`
+
+```typescript
+import fs from "node:fs/promises";
+import path from "node:path";
+import { PluginManifest, LoadedPlugin, PluginConfig } from "./types";
+import { PLUGINS_DIR } from "../constants";
+import { getHooksManager, hasHooksManager } from "../hooks";
+
+export class PluginManager {
+  private plugins: Map<string, LoadedPlugin> = new Map();
+  private config: PluginConfig;
+
+  constructor(config: PluginConfig = { enabled: true, autoload: true }) {
+    this.config = config;
+  }
+
+  /**
+   * Load a plugin from a directory
+   */
+  async loadPlugin(pluginPath: string): Promise<LoadedPlugin | null> {
+    try {
+      // Look for .claude-plugin/plugin.json (Claude Code standard)
+      const manifestPath = path.join(pluginPath, '.claude-plugin', 'plugin.json');
+      const manifestData = await fs.readFile(manifestPath, 'utf-8');
+      const manifest: PluginManifest = JSON.parse(manifestData);
+
+      if (this.config.disabled?.includes(manifest.name)) {
+        console.log(`[Plugins] Skipping disabled plugin: ${manifest.name}`);
+        return null;
+      }
+
+      const plugin: LoadedPlugin = {
+        manifest,
+        path: pluginPath,
+        enabled: true,
+        hooks: manifest.hooks || [],
+        skills: manifest.skills || [],
+        commands: manifest.commands || [],
+        agents: []
+      };
+
+      // Load hooks
+      if (hasHooksManager() && plugin.hooks.length > 0) {
+        const hooksManager = getHooksManager();
+        for (const hook of plugin.hooks) {
+          // Resolve relative paths
+          if (typeof hook.handler === 'string' && !path.isAbsolute(hook.handler)) {
+            hook.handler = path.join(pluginPath, 'hooks', hook.handler);
+          }
+          hooksManager.registerHook(hook);
+        }
+      }
+
+      // Load agents
+      if (manifest.agents) {
+        for (const agentPath of manifest.agents) {
+          const fullPath = path.join(pluginPath, 'agents', agentPath);
+          try {
+            const agentModule = require(fullPath);
+            const agent = agentModule.default || agentModule;
+            plugin.agents.push(agent);
+          } catch (e: any) {
+            console.error(`[Plugins] Failed to load agent ${agentPath}:`, e.message);
+          }
+        }
+      }
+
+      this.plugins.set(manifest.name, plugin);
+      console.log(`[Plugins] Loaded: ${manifest.name} v${manifest.version}`);
+      return plugin;
+
+    } catch (e: any) {
+      console.error(`[Plugins] Failed to load plugin at ${pluginPath}:`, e.message);
+      return null;
+    }
+  }
+
+  /**
+   * Load all plugins from directory
+   */
+  async loadAllPlugins(dir: string = PLUGINS_DIR): Promise<void> {
+    if (!this.config.enabled) return;
+
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+
+        const pluginPath = path.join(dir, entry.name);
+        await this.loadPlugin(pluginPath);
+      }
+
+      console.log(`[Plugins] Loaded ${this.plugins.size} plugins`);
+    } catch {
+      // Directory doesn't exist yet, that's OK
+      console.log(`[Plugins] No plugins directory found at ${dir}`);
+    }
+  }
+
+  /**
+   * Enable a plugin
+   */
+  enablePlugin(name: string): boolean {
+    const plugin = this.plugins.get(name);
+    if (plugin) {
+      plugin.enabled = true;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Disable a plugin
+   */
+  disablePlugin(name: string): boolean {
+    const plugin = this.plugins.get(name);
+    if (plugin) {
+      plugin.enabled = false;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get a plugin by name
+   */
+  getPlugin(name: string): LoadedPlugin | undefined {
+    return this.plugins.get(name);
+  }
+
+  /**
+   * Get all loaded plugins
+   */
+  getAllPlugins(): LoadedPlugin[] {
+    return Array.from(this.plugins.values());
+  }
+
+  /**
+   * Get all skills from all plugins
+   */
+  getAllSkills(): SkillDefinition[] {
+    const skills: SkillDefinition[] = [];
+    for (const plugin of this.plugins.values()) {
+      if (plugin.enabled) {
+        skills.push(...plugin.skills);
+      }
+    }
+    return skills;
+  }
+
+  /**
+   * Get all commands from all plugins
+   */
+  getAllCommands(): CommandDefinition[] {
+    const commands: CommandDefinition[] = [];
+    for (const plugin of this.plugins.values()) {
+      if (plugin.enabled) {
+        commands.push(...plugin.commands);
+      }
+    }
+    return commands;
+  }
+}
+
+// Singleton instance
+let pluginManager: PluginManager | null = null;
+
+export function initPluginManager(config: PluginConfig): PluginManager {
+  pluginManager = new PluginManager(config);
+  return pluginManager;
+}
+
+export function getPluginManager(): PluginManager {
+  if (!pluginManager) {
+    throw new Error('PluginManager not initialized');
+  }
+  return pluginManager;
+}
+
+export function hasPluginManager(): boolean {
+  return pluginManager !== null;
+}
+
+export * from './types';
+```
+
+**Plugin directory structure (Claude Code compatible):**
+```
+~/mycode/plugins/
+  my-plugin/
+    .claude-plugin/
+      plugin.json          # Plugin manifest
+    hooks/
+      pre-tool-use.js      # Hook implementations
+    skills/
+      my-skill.js          # Skill implementations
+    commands/
+      my-command.js        # Slash command implementations
+    agents/
+      my-agent.js          # Agent implementations
+    README.md
+```
+
+**Checklist:**
+- [ ] **10.2.5.1** Create `src/plugins/types.ts`
+- [ ] **10.2.5.2** Create `src/plugins/index.ts`
+- [ ] **10.2.5.3** Implement `PluginManager` class
+- [ ] **10.2.5.4** Implement plugin loading from `.claude-plugin/plugin.json`
+- [ ] **10.2.5.5** Implement hook registration from plugins
+- [ ] **10.2.5.6** Implement agent loading from plugins
+- [ ] **10.2.5.7** Add singleton exports
+- [ ] **10.2.5.8** Add tests for plugin system
+
+---
+
+#### Phase 10.2.6: Skills System
+
+**New file**: `src/skills/types.ts`
+
+```typescript
+export interface SkillContext {
+  args: Record<string, any>;
+  request: any;
+  config: any;
+  sessionId?: string;
+  projectPath?: string;
+}
+
+export interface SkillResult {
+  success: boolean;
+  output: string;
+  actions?: SkillAction[];
+}
+
+export interface SkillAction {
+  type: 'remember' | 'notify' | 'execute';
+  payload: any;
+}
+
+export type SkillHandler = (context: SkillContext) => Promise<SkillResult>;
+```
+
+**New file**: `src/skills/index.ts`
+
+```typescript
+import fs from "node:fs/promises";
+import path from "node:path";
+import { SkillDefinition } from "../plugins/types";
+import { SkillContext, SkillResult, SkillHandler } from "./types";
+import { SKILLS_DIR } from "../constants";
+
+export class SkillsManager {
+  private skills: Map<string, SkillDefinition> = new Map();
+
+  /**
+   * Register a skill
+   */
+  registerSkill(skill: SkillDefinition): void {
+    this.skills.set(skill.name, skill);
+    console.log(`[Skills] Registered: ${skill.name}`);
+  }
+
+  /**
+   * Unregister a skill
+   */
+  unregisterSkill(name: string): void {
+    this.skills.delete(name);
+  }
+
+  /**
+   * Load skills from directory
+   */
+  async loadSkillsFromDir(dir: string = SKILLS_DIR): Promise<void> {
+    try {
+      const files = await fs.readdir(dir);
+
+      for (const file of files) {
+        if (!file.endsWith('.js') && !file.endsWith('.ts')) continue;
+
+        const filePath = path.join(dir, file);
+        try {
+          const skillModule = require(filePath);
+          const skill = skillModule.default || skillModule;
+
+          if (this.isValidSkill(skill)) {
+            this.registerSkill({
+              ...skill,
+              handler: filePath
+            });
+          }
+        } catch (e: any) {
+          console.error(`[Skills] Failed to load ${file}:`, e.message);
+        }
+      }
+    } catch {
+      // Directory doesn't exist yet, that's OK
+    }
+  }
+
+  /**
+   * Find skill by trigger (slash command)
+   */
+  findSkillByTrigger(input: string): SkillDefinition | undefined {
+    for (const skill of this.skills.values()) {
+      if (typeof skill.trigger === 'string') {
+        if (input.startsWith(skill.trigger)) {
+          return skill;
+        }
+      } else if (skill.trigger instanceof RegExp) {
+        if (skill.trigger.test(input)) {
+          return skill;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Execute a skill
+   */
+  async executeSkill(name: string, context: SkillContext): Promise<SkillResult> {
+    const skill = this.skills.get(name);
+    if (!skill) {
+      return { success: false, output: `Skill not found: ${name}` };
+    }
+
+    try {
+      const handler = await this.resolveHandler(skill.handler);
+      const timeout = skill.timeout ?? 30000;
+
+      const result = await Promise.race([
+        handler(context),
+        new Promise<SkillResult>((_, reject) =>
+          setTimeout(() => reject(new Error('Skill timeout')), timeout)
+        )
+      ]);
+
+      return result;
+    } catch (e: any) {
+      return { success: false, output: `Skill failed: ${e.message}` };
+    }
+  }
+
+  /**
+   * Get all registered skills
+   */
+  getAllSkills(): SkillDefinition[] {
+    return Array.from(this.skills.values());
+  }
+
+  private async resolveHandler(handler: string): Promise<SkillHandler> {
+    const module = require(handler);
+    return module.default || module.handler || module;
+  }
+
+  private isValidSkill(obj: any): obj is SkillDefinition {
+    return obj && typeof obj.name === 'string' && obj.trigger;
+  }
+}
+
+// Singleton instance
+let skillsManager: SkillsManager | null = null;
+
+export function initSkillsManager(): SkillsManager {
+  skillsManager = new SkillsManager();
+  return skillsManager;
+}
+
+export function getSkillsManager(): SkillsManager {
+  if (!skillsManager) {
+    throw new Error('SkillsManager not initialized');
+  }
+  return skillsManager;
+}
+
+export function hasSkillsManager(): boolean {
+  return skillsManager !== null;
+}
+
+export * from './types';
+```
+
+**Checklist:**
+- [ ] **10.2.6.1** Create `src/skills/types.ts`
+- [ ] **10.2.6.2** Create `src/skills/index.ts`
+- [ ] **10.2.6.3** Implement `SkillsManager` class
+- [ ] **10.2.6.4** Implement skill loading from directory
+- [ ] **10.2.6.5** Implement trigger matching
+- [ ] **10.2.6.6** Implement skill execution
+- [ ] **10.2.6.7** Add tests for skills system
+
+---
+
+#### Phase 10.2.7: Extended Config Schema
+
+**New file**: `src/config/schema.ts`
+
+```typescript
+import { HookConfig } from '../hooks/types';
+import { PluginConfig } from '../plugins/types';
+
+export interface CCRConfig {
+  // ═══════════════════════════════════════════════════════════════════
+  // NETWORK & SERVER
+  // ═══════════════════════════════════════════════════════════════════
+  PORT: number;
+  HOST?: string;
+  APIKEY?: string;
+  API_TIMEOUT_MS?: number;
+  PROXY_URL?: string;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PROVIDERS & ROUTING
+  // ═══════════════════════════════════════════════════════════════════
+  Providers: ProviderConfig[];
+  Router: RouterConfig;
+  transformers?: TransformerConfig[];
+  CUSTOM_ROUTER_PATH?: string;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // MEMORY SYSTEM (Phase 1-3)
+  // ═══════════════════════════════════════════════════════════════════
+  Memory?: MemorySystemConfig;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // SUB-AGENT SYSTEM (Phase 5)
+  // ═══════════════════════════════════════════════════════════════════
+  SubAgent?: SubAgentSystemConfig;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // EXTENSIBILITY (Phase 10 - NEW)
+  // ═══════════════════════════════════════════════════════════════════
+  Hooks?: HookConfig;
+  Plugins?: PluginConfig;
+  Skills?: {
+    enabled: boolean;
+    directory?: string;
+  };
+
+  // ═══════════════════════════════════════════════════════════════════
+  // UI & FEATURES
+  // ═══════════════════════════════════════════════════════════════════
+  StatusLine?: StatusLineConfig;
+  LOG?: boolean;
+  LOG_LEVEL?: string;
+  CLAUDE_PATH?: string;
+  NON_INTERACTIVE_MODE?: boolean;
+}
+
+export interface ProviderConfig {
+  name: string;
+  api_base_url: string;
+  api_key: string;
+  models: string[];
+  transformer?: {
+    use?: string[];
+  };
+}
+
+export interface RouterConfig {
+  default: string;
+  background?: string;
+  think?: string;
+  longContext?: string;
+  longContextThreshold?: number;
+  webSearch?: string;
+  image?: string;
+}
+
+export interface TransformerConfig {
+  name?: string;
+  path: string;
+  options?: Record<string, any>;
+}
+
+export interface MemorySystemConfig {
+  enabled: boolean;
+  debugMode?: boolean;
+  embedding: {
+    provider: 'openai' | 'ollama' | 'local';
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+  };
+  autoInject: {
+    global: boolean;
+    project: boolean;
+    maxMemories: number;
+    maxTokens: number;
+  };
+  autoExtract: boolean;
+  retention: {
+    minImportance: number;
+    maxAgeDays: number;
+    cleanupIntervalMs: number;
+  };
+}
+
+export interface SubAgentSystemConfig {
+  enabled: boolean;
+  maxDepth: number;
+  inheritMemory: boolean;
+  defaultTimeout: number;
+  allowedTypes: string[];
+  debugMode?: boolean;
+}
+
+export interface StatusLineConfig {
+  enabled: boolean;
+  currentStyle: string;
+  default?: any;
+  powerline?: any;
+}
+```
+
+**Checklist:**
+- [ ] **10.2.7.1** Create `src/config/schema.ts`
+- [ ] **10.2.7.2** Define all config interfaces
+- [ ] **10.2.7.3** Add Hooks, Plugins, Skills config sections
+- [ ] **10.2.7.4** Document all config options
+
+---
+
+#### Phase 10.2.8: Server Integration
+
+**File**: `src/index.ts`
+
+Add initialization of hooks, plugins, and skills:
+
+```typescript
+import { initHooksManager, getHooksManager, hasHooksManager } from './hooks';
+import { initPluginManager, getPluginManager } from './plugins';
+import { initSkillsManager, getSkillsManager } from './skills';
+import { HOOKS_DIR, PLUGINS_DIR, SKILLS_DIR } from './constants';
+
+// In run() function, after config loading:
+
+async function run(options: RunOptions = {}) {
+  // ... existing initialization ...
+
+  const config = await initConfig();
+
+  // ═══════════════════════════════════════════════════════════════════
+  // EXTENSIBILITY INITIALIZATION (Phase 10)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Initialize hooks system
+  if (config.Hooks?.enabled !== false) {
+    const hooksManager = initHooksManager(config.Hooks || { enabled: true });
+    await hooksManager.loadHooksFromDir(config.Hooks?.directory || HOOKS_DIR);
+    console.log(`[CCR] Hooks system initialized`);
+  }
+
+  // Initialize plugins system
+  if (config.Plugins?.enabled !== false) {
+    const pluginManager = initPluginManager(config.Plugins || { enabled: true });
+    if (config.Plugins?.autoload !== false) {
+      await pluginManager.loadAllPlugins(config.Plugins?.directory || PLUGINS_DIR);
+    }
+    console.log(`[CCR] Plugins system initialized`);
+  }
+
+  // Initialize skills system
+  if (config.Skills?.enabled !== false) {
+    const skillsManager = initSkillsManager();
+    await skillsManager.loadSkillsFromDir(config.Skills?.directory || SKILLS_DIR);
+    console.log(`[CCR] Skills system initialized`);
+  }
+
+  // ... rest of server initialization ...
+}
+```
+
+**File**: `src/server.ts`
+
+Add API endpoints for plugins, hooks, and skills:
+
+```typescript
+// Add to server setup:
+
+// ═══════════════════════════════════════════════════════════════════
+// EXTENSIBILITY API ENDPOINTS (Phase 10)
+// ═══════════════════════════════════════════════════════════════════
+
+// Plugins endpoints
+server.app.get("/api/plugins", async () => {
+  const pluginManager = getPluginManager();
+  return pluginManager.getAllPlugins().map(p => ({
+    name: p.manifest.name,
+    version: p.manifest.version,
+    description: p.manifest.description,
+    enabled: p.enabled,
+    hooks: p.hooks.length,
+    skills: p.skills.length,
+    commands: p.commands.length
+  }));
+});
+
+server.app.post("/api/plugins/:name/enable", async (req) => {
+  const { name } = req.params;
+  const pluginManager = getPluginManager();
+  const success = pluginManager.enablePlugin(name);
+  return { success, name };
+});
+
+server.app.post("/api/plugins/:name/disable", async (req) => {
+  const { name } = req.params;
+  const pluginManager = getPluginManager();
+  const success = pluginManager.disablePlugin(name);
+  return { success, name };
+});
+
+// Hooks endpoints
+server.app.get("/api/hooks", async () => {
+  if (!hasHooksManager()) return [];
+  const hooksManager = getHooksManager();
+  return hooksManager.getAllHooks().map(h => ({
+    name: h.name,
+    event: h.event,
+    priority: h.priority ?? 0,
+    enabled: h.enabled !== false
+  }));
+});
+
+server.app.get("/api/hooks/events", async () => {
+  return [
+    'PreToolUse', 'PostToolUse', 'PreRoute', 'PostRoute',
+    'SessionStart', 'SessionEnd', 'PreResponse', 'PostResponse',
+    'PreCompact', 'Notification'
+  ];
+});
+
+// Skills endpoints
+server.app.get("/api/skills", async () => {
+  if (!hasSkillsManager()) return [];
+  const skillsManager = getSkillsManager();
+  return skillsManager.getAllSkills().map(s => ({
+    name: s.name,
+    description: s.description,
+    trigger: String(s.trigger)
+  }));
+});
+```
+
+**Checklist:**
+- [ ] **10.2.8.1** Add hooks initialization to `src/index.ts`
+- [ ] **10.2.8.2** Add plugins initialization to `src/index.ts`
+- [ ] **10.2.8.3** Add skills initialization to `src/index.ts`
+- [ ] **10.2.8.4** Add `/api/plugins` endpoints to `src/server.ts`
+- [ ] **10.2.8.5** Add `/api/hooks` endpoints to `src/server.ts`
+- [ ] **10.2.8.6** Add `/api/skills` endpoints to `src/server.ts`
+- [ ] **10.2.8.7** Integrate hook execution into Fastify lifecycle
+
+---
+
+#### Phase 10.2.9: CLI Migration Command
+
+**File**: `src/cli.ts`
+
+Add `ccr migrate` command:
+
+```typescript
+import { checkAndMigrate, migrateFromLegacy, detectLegacyConfig, detectNewConfig } from './utils/migration';
+
+// Add to command handling:
+
+case 'migrate':
+  const hasLegacy = await detectLegacyConfig();
+  const hasNew = await detectNewConfig();
+
+  if (hasNew && !hasLegacy) {
+    console.log('Already using new config location. No migration needed.');
+    break;
+  }
+
+  if (!hasLegacy) {
+    console.log('No legacy config found. Nothing to migrate.');
+    break;
+  }
+
+  console.log('Starting migration...');
+  const result = await migrateFromLegacy();
+
+  if (result.success) {
+    console.log('\nMigration successful!');
+    console.log(`Migrated: ${result.migrated.join(', ')}`);
+    console.log(`Backup: ${result.backupPath}`);
+  } else {
+    console.error('\nMigration failed!');
+    console.error(`Errors: ${result.errors.join(', ')}`);
+  }
+  break;
+```
+
+**Checklist:**
+- [ ] **10.2.9.1** Add `migrate` command to CLI
+- [ ] **10.2.9.2** Add help text for migrate command
+- [ ] **10.2.9.3** Test manual migration
+
+---
+
+### 10.3 File Changes Summary
+
+| File | Changes |
+|------|---------|
+| `src/constants.ts` | Update HOME_DIR, add new directory constants |
+| `src/utils/index.ts` | Update initDir, add migration call |
+| `src/utils/migration.ts` | **NEW** - Migration utilities |
+| `src/hooks/types.ts` | **NEW** - Hook type definitions |
+| `src/hooks/index.ts` | **NEW** - HooksManager |
+| `src/plugins/types.ts` | **NEW** - Plugin type definitions |
+| `src/plugins/index.ts` | **NEW** - PluginManager |
+| `src/skills/types.ts` | **NEW** - Skill type definitions |
+| `src/skills/index.ts` | **NEW** - SkillsManager |
+| `src/config/schema.ts` | **NEW** - Extended config schema |
+| `src/index.ts` | Initialize hooks, plugins, skills |
+| `src/server.ts` | Add extensibility API endpoints |
+| `src/cli.ts` | Add migrate command |
+
+---
+
+### 10.4 Example Config (Extended)
+
+```json
+{
+  "PORT": 3456,
+  "HOST": "127.0.0.1",
+  "APIKEY": "your-api-key",
+
+  "Providers": [
+    {
+      "name": "ollama",
+      "api_base_url": "http://localhost:11434/v1/chat/completions",
+      "api_key": "ollama",
+      "models": ["qwen2.5-coder:latest", "llama3.2:latest"]
+    }
+  ],
+
+  "Router": {
+    "default": "ollama,qwen2.5-coder:latest",
+    "background": "ollama,llama3.2:latest"
+  },
+
+  "Memory": {
+    "enabled": true,
+    "embedding": {
+      "provider": "ollama",
+      "model": "nomic-embed-text"
+    }
+  },
+
+  "Hooks": {
+    "enabled": true,
+    "directory": "~/mycode/hooks",
+    "timeout": 5000
+  },
+
+  "Plugins": {
+    "enabled": true,
+    "directory": "~/mycode/plugins",
+    "autoload": true,
+    "disabled": []
+  },
+
+  "Skills": {
+    "enabled": true,
+    "directory": "~/mycode/skills"
+  }
+}
+```
+
+---
+
+### 10.5 ADR-005: Centralized Configuration at ~/mycode/
+
+**Decision**: Move all CCR configuration and data from `~/.claude-code-router/` to `~/mycode/`.
+
+**Rationale**:
+- User-visible location is more accessible than hidden directories
+- Easier to backup, edit, and share configuration
+- Aligns with user's preference for centralized config
+- Makes plugins/hooks/skills more discoverable
+
+**Consequences**:
+- Requires migration utility for existing users
+- Need to maintain backward compatibility during transition
+- CCR_HOME env var allows override if needed
+
+---
+
+### 10.6 CCR-UI Compatibility
+
+The UI already communicates via REST API (`/api/config`). No changes needed to the UI itself - it will automatically use the new location since the server reads from the updated constants.
+
+New API endpoints added:
+- `GET /api/plugins` - List installed plugins
+- `POST /api/plugins/:name/enable` - Enable a plugin
+- `POST /api/plugins/:name/disable` - Disable a plugin
+- `GET /api/hooks` - List registered hooks
+- `GET /api/hooks/events` - List available hook events
+- `GET /api/skills` - List registered skills

@@ -20,6 +20,12 @@ import type {
   SubAgentStreamEvent,
   SubAgentProgressCallback,
 } from './types';
+import {
+  SubAgentError,
+  ErrorCode,
+  isNetworkError,
+  isRateLimitError,
+} from '../errors';
 
 // Re-export header constants for convenience
 export { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER };
@@ -39,15 +45,73 @@ export class SubAgentRunner {
   async execute(input: SpawnSubAgentInput): Promise<SubAgentResult> {
     const startTime = Date.now();
 
+    // Validate input
+    if (!input.task || input.task.trim().length === 0) {
+      return {
+        success: false,
+        output: '',
+        error: 'Sub-agent task cannot be empty',
+        errorCode: ErrorCode.SUBAGENT_SPAWN_FAILED,
+        metadata: this.buildMetadata(input, startTime, Date.now()),
+      };
+    }
+
     try {
       // Build the request
-      const requestBody = await this.buildRequestBody(input);
+      let requestBody: any;
+      try {
+        requestBody = await this.buildRequestBody(input);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          output: '',
+          error: `Failed to build sub-agent request: ${errorMessage}`,
+          errorCode: ErrorCode.SUBAGENT_SPAWN_FAILED,
+          metadata: this.buildMetadata(input, startTime, Date.now()),
+        };
+      }
 
       // Make internal API call
-      const response = await this.makeInternalApiCall(requestBody, input.streamProgress ?? false);
+      let response: Response;
+      try {
+        response = await this.makeInternalApiCall(requestBody, input.streamProgress ?? false);
+      } catch (error) {
+        const isNetwork = isNetworkError(error);
+        const isRateLimit = isRateLimitError(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        return {
+          success: false,
+          output: '',
+          error: isNetwork
+            ? `Sub-agent network error: ${errorMessage}. Is the router running?`
+            : isRateLimit
+            ? `Sub-agent rate limited: ${errorMessage}. Try again later.`
+            : `Sub-agent API call failed: ${errorMessage}`,
+          errorCode: isNetwork
+            ? ErrorCode.SUBAGENT_NETWORK_ERROR
+            : isRateLimit
+            ? ErrorCode.SUBAGENT_RATE_LIMITED
+            : ErrorCode.SUBAGENT_EXECUTION_FAILED,
+          metadata: this.buildMetadata(input, startTime, Date.now()),
+        };
+      }
 
       // Process response
-      const output = await this.processResponse(response);
+      let output: string;
+      try {
+        output = await this.processResponse(response);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          output: '',
+          error: `Failed to process sub-agent response: ${errorMessage}`,
+          errorCode: ErrorCode.SUBAGENT_EXECUTION_FAILED,
+          metadata: this.buildMetadata(input, startTime, Date.now()),
+        };
+      }
 
       const endTime = Date.now();
 
@@ -64,7 +128,8 @@ export class SubAgentRunner {
       return {
         success: false,
         output: '',
-        error: errorMessage,
+        error: `Unexpected sub-agent error: ${errorMessage}`,
+        errorCode: ErrorCode.SUBAGENT_EXECUTION_FAILED,
         metadata: this.buildMetadata(input, startTime, endTime),
       };
     }
@@ -79,6 +144,30 @@ export class SubAgentRunner {
   ): Promise<SubAgentResult> {
     const startTime = Date.now();
 
+    // Validate input
+    if (!input.task || input.task.trim().length === 0) {
+      const result: SubAgentResult = {
+        success: false,
+        output: '',
+        error: 'Sub-agent task cannot be empty',
+        errorCode: ErrorCode.SUBAGENT_SPAWN_FAILED,
+        metadata: this.buildMetadata(input, startTime, Date.now()),
+      };
+
+      this.emitEvent(onProgress, {
+        type: 'error',
+        message: result.error,
+        code: ErrorCode.SUBAGENT_SPAWN_FAILED,
+      });
+
+      this.emitEvent(onProgress, {
+        type: 'complete',
+        result,
+      });
+
+      return result;
+    }
+
     // Emit start event
     this.emitEvent(onProgress, {
       type: 'start',
@@ -88,10 +177,72 @@ export class SubAgentRunner {
 
     try {
       // Build the request
-      const requestBody = await this.buildRequestBody(input);
+      let requestBody: any;
+      try {
+        requestBody = await this.buildRequestBody(input);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const result: SubAgentResult = {
+          success: false,
+          output: '',
+          error: `Failed to build sub-agent request: ${errorMessage}`,
+          errorCode: ErrorCode.SUBAGENT_SPAWN_FAILED,
+          metadata: this.buildMetadata(input, startTime, Date.now()),
+        };
+
+        this.emitEvent(onProgress, {
+          type: 'error',
+          message: result.error,
+          code: ErrorCode.SUBAGENT_SPAWN_FAILED,
+        });
+
+        this.emitEvent(onProgress, {
+          type: 'complete',
+          result,
+        });
+
+        return result;
+      }
 
       // Make internal API call with streaming
-      const response = await this.makeInternalApiCall(requestBody, true);
+      let response: Response;
+      try {
+        response = await this.makeInternalApiCall(requestBody, true);
+      } catch (error) {
+        const isNetwork = isNetworkError(error);
+        const isRateLimit = isRateLimitError(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorCode = isNetwork
+          ? ErrorCode.SUBAGENT_NETWORK_ERROR
+          : isRateLimit
+          ? ErrorCode.SUBAGENT_RATE_LIMITED
+          : ErrorCode.SUBAGENT_EXECUTION_FAILED;
+
+        const result: SubAgentResult = {
+          success: false,
+          output: '',
+          error: isNetwork
+            ? `Sub-agent network error: ${errorMessage}. Is the router running?`
+            : isRateLimit
+            ? `Sub-agent rate limited: ${errorMessage}. Try again later.`
+            : `Sub-agent API call failed: ${errorMessage}`,
+          errorCode,
+          metadata: this.buildMetadata(input, startTime, Date.now()),
+        };
+
+        this.emitEvent(onProgress, {
+          type: 'error',
+          message: result.error,
+          code: errorCode,
+        });
+
+        this.emitEvent(onProgress, {
+          type: 'complete',
+          result,
+        });
+
+        return result;
+      }
 
       // Process streaming response
       const output = await this.processStreamingResponse(response, onProgress);
@@ -120,12 +271,14 @@ export class SubAgentRunner {
       this.emitEvent(onProgress, {
         type: 'error',
         message: errorMessage,
+        code: ErrorCode.SUBAGENT_EXECUTION_FAILED,
       });
 
       const result: SubAgentResult = {
         success: false,
         output: '',
-        error: errorMessage,
+        error: `Unexpected sub-agent error: ${errorMessage}`,
+        errorCode: ErrorCode.SUBAGENT_EXECUTION_FAILED,
         metadata: this.buildMetadata(input, startTime, endTime),
       };
 
@@ -251,20 +404,66 @@ export class SubAgentRunner {
 
     requestBody.stream = stream;
 
-    const response = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        [SUBAGENT_DEPTH_HEADER]: String(this.context.depth + 1),
-        [SUBAGENT_ID_HEADER]: this.subAgentId,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          [SUBAGENT_DEPTH_HEADER]: String(this.context.depth + 1),
+          [SUBAGENT_ID_HEADER]: this.subAgentId,
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (error) {
+      // Network-level error (connection refused, DNS failure, etc.)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new SubAgentError(
+        `Failed to connect to router at port ${port}: ${errorMessage}`,
+        {
+          code: ErrorCode.SUBAGENT_NETWORK_ERROR,
+          operation: 'api_call',
+          agentType: requestBody.agentType,
+          parentRequestId: this.context.parentRequestId,
+          cause: error instanceof Error ? error : undefined,
+          details: { port, depth: this.context.depth + 1 },
+        }
+      );
+    }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Sub-agent API call failed: ${response.status} ${errorText}`);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch {
+        errorText = response.statusText;
+      }
+
+      // Determine error type based on status code
+      let errorCode = ErrorCode.SUBAGENT_EXECUTION_FAILED;
+      if (response.status === 429) {
+        errorCode = ErrorCode.SUBAGENT_RATE_LIMITED;
+      } else if (response.status === 408 || response.status === 504) {
+        errorCode = ErrorCode.SUBAGENT_TIMEOUT;
+      } else if (response.status >= 500) {
+        errorCode = ErrorCode.SUBAGENT_NETWORK_ERROR;
+      }
+
+      throw new SubAgentError(
+        `Sub-agent API returned ${response.status}: ${errorText}`,
+        {
+          code: errorCode,
+          operation: 'api_response',
+          agentType: requestBody.agentType,
+          parentRequestId: this.context.parentRequestId,
+          details: {
+            status: response.status,
+            depth: this.context.depth + 1,
+            errorBody: errorText.slice(0, 500),
+          },
+        }
+      );
     }
 
     return response;

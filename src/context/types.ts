@@ -37,6 +37,8 @@ export interface ContextBuildResult {
   totalTokens: number;
   trimmedSections: ContextSection[];
   analysis: RequestAnalysis;
+  /** Non-fatal errors that occurred during context building */
+  errors?: string[];
 }
 
 export interface ContextBuilderConfig {

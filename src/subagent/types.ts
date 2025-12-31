@@ -4,6 +4,7 @@
  */
 
 import type { Memory } from '../memory/types';
+import type { ErrorCode } from '../errors';
 
 // Sub-agent types
 export type SubAgentType = 'research' | 'code' | 'review' | 'custom';
@@ -47,6 +48,7 @@ export interface SubAgentResult {
   output: string;         // The sub-agent's final response
   summary?: string;       // Brief summary of what was done
   error?: string;         // Error message if failed
+  errorCode?: ErrorCode;  // Structured error code for LLM consumption
   metadata: SubAgentResultMetadata;
 }
 

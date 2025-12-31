@@ -11,6 +11,11 @@ import type {
 } from './types';
 import { ContextPriority } from './types';
 import { buildMemorySections, buildEmphasisSections, buildInstructionSections } from './sections';
+import {
+  ContextBuilderError,
+  ErrorCode,
+  type CCRError,
+} from '../errors';
 
 const DEFAULT_CONFIG: ContextBuilderConfig = {
   maxTokens: 8000,
@@ -23,6 +28,7 @@ const DEFAULT_CONFIG: ContextBuilderConfig = {
 
 export class DynamicContextBuilder {
   private config: ContextBuilderConfig;
+  private buildErrors: string[] = [];
 
   constructor(config: Partial<ContextBuilderConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -41,8 +47,25 @@ export class DynamicContextBuilder {
       tools?: any[];
     }
   ): Promise<ContextBuildResult> {
-    // Step 1: Analyze the request
-    const analysis = this.analyzeRequest(request);
+    // Reset build errors for this build
+    this.buildErrors = [];
+
+    // Step 1: Analyze the request (with error handling)
+    let analysis: RequestAnalysis;
+    try {
+      analysis = this.analyzeRequest(request);
+    } catch (error) {
+      this.buildErrors.push(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`);
+      // Use default analysis on error
+      analysis = {
+        taskType: 'general',
+        complexity: 'moderate',
+        requiresMemory: true,
+        requiresProjectContext: true,
+        keywords: [],
+        entities: [],
+      };
+    }
 
     // Step 2: Collect all context sections
     const sections: ContextSection[] = [];
@@ -53,31 +76,91 @@ export class DynamicContextBuilder {
         const memorySections = await buildMemorySections(request);
         sections.push(...memorySections);
       } catch (error) {
+        const errorMsg = `Memory sections error: ${error instanceof Error ? error.message : String(error)}`;
+        this.buildErrors.push(errorMsg);
         if (this.config.debugMode) {
-          console.error('[Context Builder] Memory sections error:', error);
+          console.error('[Context Builder]', errorMsg);
         }
       }
     }
 
     // Instruction sections
-    const instructionSections = buildInstructionSections();
-    sections.push(...instructionSections);
+    try {
+      const instructionSections = buildInstructionSections();
+      sections.push(...instructionSections);
+    } catch (error) {
+      const errorMsg = `Instruction sections error: ${error instanceof Error ? error.message : String(error)}`;
+      this.buildErrors.push(errorMsg);
+      if (this.config.debugMode) {
+        console.error('[Context Builder]', errorMsg);
+      }
+    }
 
     // Emphasis sections (if enabled)
     if (this.config.enableEmphasis) {
-      const emphasisSections = buildEmphasisSections(analysis);
-      sections.push(...emphasisSections);
+      try {
+        const emphasisSections = buildEmphasisSections(analysis);
+        sections.push(...emphasisSections);
+      } catch (error) {
+        const errorMsg = `Emphasis sections error: ${error instanceof Error ? error.message : String(error)}`;
+        this.buildErrors.push(errorMsg);
+        if (this.config.debugMode) {
+          console.error('[Context Builder]', errorMsg);
+        }
+      }
     }
 
     // Step 3: Calculate available token budget
-    const originalSystemTokens = this.estimateSystemTokens(originalSystem);
-    const availableTokens = this.config.maxTokens - this.config.reserveTokensForResponse - originalSystemTokens;
+    let originalSystemTokens: number;
+    let availableTokens: number;
+    try {
+      originalSystemTokens = this.estimateSystemTokens(originalSystem);
+      availableTokens = this.config.maxTokens - this.config.reserveTokensForResponse - originalSystemTokens;
+
+      // Ensure we have at least some tokens available
+      if (availableTokens < 100) {
+        this.buildErrors.push(`Token budget exhausted: only ${availableTokens} tokens available`);
+        availableTokens = 100;
+      }
+    } catch (error) {
+      this.buildErrors.push(`Token estimation failed: ${error instanceof Error ? error.message : String(error)}`);
+      availableTokens = 1000; // Safe fallback
+    }
 
     // Step 4: Prioritize and trim sections to fit budget
-    const { included, trimmed } = this.fitToBudget(sections, availableTokens);
+    let included: ContextSection[];
+    let trimmed: ContextSection[];
+    try {
+      const result = this.fitToBudget(sections, availableTokens);
+      included = result.included;
+      trimmed = result.trimmed;
+    } catch (error) {
+      const errorMsg = `Budget fitting failed: ${error instanceof Error ? error.message : String(error)}`;
+      this.buildErrors.push(errorMsg);
+      // Include all sections on error (will be truncated during assembly if needed)
+      included = sections;
+      trimmed = [];
+    }
 
     // Step 5: Assemble final system prompt
-    const enhancedSystem = this.assembleSystemPrompt(originalSystem, included);
+    let enhancedSystem: string;
+    try {
+      enhancedSystem = this.assembleSystemPrompt(originalSystem, included);
+    } catch (error) {
+      // Critical failure - throw with context
+      throw new ContextBuilderError(
+        `Failed to assemble system prompt: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          code: ErrorCode.CONTEXT_BUILD_FAILED,
+          phase: 'assembly',
+          cause: error instanceof Error ? error : undefined,
+          details: {
+            sectionCount: included.length,
+            errors: this.buildErrors,
+          },
+        }
+      );
+    }
 
     // Step 6: Calculate final token count
     const totalTokens = this.estimateSystemTokens(enhancedSystem);
@@ -89,6 +172,7 @@ export class DynamicContextBuilder {
         sections: included.map(s => s.name),
         trimmed: trimmed.map(s => s.name),
         totalTokens,
+        errors: this.buildErrors.length > 0 ? this.buildErrors : undefined,
       });
     }
 
@@ -98,7 +182,13 @@ export class DynamicContextBuilder {
       totalTokens,
       trimmedSections: trimmed,
       analysis,
+      errors: this.buildErrors.length > 0 ? this.buildErrors : undefined,
     };
+  }
+
+  // Get errors from the last build
+  getLastBuildErrors(): string[] {
+    return [...this.buildErrors];
   }
 
   // ═══════════════════════════════════════════════════════════════════

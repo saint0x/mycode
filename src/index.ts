@@ -25,6 +25,13 @@ import { EventEmitter } from "node:events";
 import { initMemoryService, getMemoryService, hasMemoryService } from "./memory";
 import { getContextBuilder, initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
+import {
+  RouterError,
+  StreamError,
+  ErrorCode,
+  formatErrorForToolResult,
+  getErrorMessage,
+} from "./errors";
 
 const event = new EventEmitter()
 
@@ -33,8 +40,10 @@ async function extractMemoriesFromResponse(
   content: string,
   req: any,
   config: any
-): Promise<void> {
-  if (!config.Memory?.enabled || !hasMemoryService()) return;
+): Promise<{ saved: number; errors: string[] }> {
+  const result = { saved: 0, errors: [] as string[] };
+
+  if (!config.Memory?.enabled || !hasMemoryService()) return result;
 
   try {
     const memoryService = getMemoryService();
@@ -46,69 +55,97 @@ async function extractMemoriesFromResponse(
     while ((match = rememberRegex.exec(content)) !== null) {
       const [, scope, category, memoryContent] = match;
 
-      await memoryService.remember(memoryContent.trim(), {
-        scope: scope as 'global' | 'project',
-        projectPath: req.projectPath,
-        category: category as MemoryCategory,
-        metadata: {
-          sessionId: req.sessionId,
-          source: 'agent-explicit',
-        },
-      });
+      try {
+        await memoryService.remember(memoryContent.trim(), {
+          scope: scope as 'global' | 'project',
+          projectPath: req.projectPath,
+          category: category as MemoryCategory,
+          metadata: {
+            sessionId: req.sessionId,
+            source: 'agent-explicit',
+          },
+        });
+        result.saved++;
 
-      if (config.Memory.debugMode) {
-        console.log(`[Memory] Saved ${scope} memory (${category}):`, memoryContent.trim().slice(0, 50) + '...');
+        if (config.Memory.debugMode) {
+          console.log(`[Memory] Saved ${scope} memory (${category}):`, memoryContent.trim().slice(0, 50) + '...');
+        }
+      } catch (err) {
+        const errorMsg = `Failed to save ${scope}/${category} memory: ${getErrorMessage(err)}`;
+        result.errors.push(errorMsg);
+        if (config.Memory.debugMode) {
+          console.error('[Memory]', errorMsg);
+        }
       }
     }
 
     // Auto-extract if enabled
     if (config.Memory.autoExtract) {
-      await autoExtractMemories(content, req, config);
+      const autoResult = await autoExtractMemories(content, req, config);
+      result.saved += autoResult.saved;
+      result.errors.push(...autoResult.errors);
     }
   } catch (err) {
+    result.errors.push(`Memory extraction failed: ${getErrorMessage(err)}`);
     console.error('[Memory] Error extracting memories:', err);
   }
+
+  return result;
 }
 
-async function autoExtractMemories(content: string, req: any, config: any): Promise<void> {
-  if (!hasMemoryService()) return;
+async function autoExtractMemories(
+  content: string,
+  req: any,
+  config: any
+): Promise<{ saved: number; errors: string[] }> {
+  const result = { saved: 0, errors: [] as string[] };
 
-  const memoryService = getMemoryService();
-  const patterns = [
-    {
-      regex: /(?:user prefers?|always use|never use|I (?:like|prefer|want))\s+(.+?)(?:\.|$)/gi,
-      category: 'preference' as MemoryCategory,
-      scope: 'global' as const,
-    },
-    {
-      regex: /(?:decided to|choosing|went with|using)\s+(.+?)\s+(?:for|because|since)/gi,
-      category: 'decision' as MemoryCategory,
-      scope: 'project' as const,
-    },
-  ];
+  if (!hasMemoryService()) return result;
 
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.regex.exec(content)) !== null) {
-      const extractedContent = match[1].trim();
-      if (extractedContent.length > 10 && extractedContent.length < 500) {
-        try {
-          await memoryService.remember(extractedContent, {
-            scope: pattern.scope,
-            projectPath: req.projectPath,
-            category: pattern.category,
-            importance: 0.5,
-            metadata: {
-              sessionId: req.sessionId,
-              source: 'auto-extracted',
-            },
-          });
-        } catch (err) {
-          // Silently ignore extraction errors
+  try {
+    const memoryService = getMemoryService();
+    const patterns = [
+      {
+        regex: /(?:user prefers?|always use|never use|I (?:like|prefer|want))\s+(.+?)(?:\.|$)/gi,
+        category: 'preference' as MemoryCategory,
+        scope: 'global' as const,
+      },
+      {
+        regex: /(?:decided to|choosing|went with|using)\s+(.+?)\s+(?:for|because|since)/gi,
+        category: 'decision' as MemoryCategory,
+        scope: 'project' as const,
+      },
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.regex.exec(content)) !== null) {
+        const extractedContent = match[1].trim();
+        if (extractedContent.length > 10 && extractedContent.length < 500) {
+          try {
+            await memoryService.remember(extractedContent, {
+              scope: pattern.scope,
+              projectPath: req.projectPath,
+              category: pattern.category,
+              importance: 0.5,
+              metadata: {
+                sessionId: req.sessionId,
+                source: 'auto-extracted',
+              },
+            });
+            result.saved++;
+          } catch (err) {
+            // Collect but don't propagate auto-extraction errors
+            result.errors.push(`Auto-extract failed for ${pattern.category}: ${getErrorMessage(err)}`);
+          }
         }
       }
     }
+  } catch (err) {
+    result.errors.push(`Auto-extraction error: ${getErrorMessage(err)}`);
   }
+
+  return result;
 }
 
 async function initializeClaudeConfig() {
