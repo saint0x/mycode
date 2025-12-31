@@ -18,6 +18,8 @@ import { sessionUsageCache } from "./utils/cache";
 import {SSEParserTransform} from "./utils/SSEParser.transform";
 import {SSESerializerTransform} from "./utils/SSESerializer.transform";
 import {rewriteStream} from "./utils/rewriteStream";
+import {createMemoryProcessingTransform} from "./utils/MemoryProcessing.transform";
+import { parseRememberTags } from "./utils/rememberTags";
 import JSON5 from "json5";
 import { IAgent } from "./agents/type";
 import agentsManager from "./agents";
@@ -25,13 +27,6 @@ import { EventEmitter } from "node:events";
 import { initMemoryService, getMemoryService, hasMemoryService } from "./memory";
 import { getContextBuilder, initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
-import {
-  RouterError,
-  StreamError,
-  ErrorCode,
-  formatErrorForToolResult,
-  getErrorMessage,
-} from "./errors";
 
 const event = new EventEmitter()
 
@@ -40,112 +35,79 @@ async function extractMemoriesFromResponse(
   content: string,
   req: any,
   config: any
-): Promise<{ saved: number; errors: string[] }> {
-  const result = { saved: 0, errors: [] as string[] };
-
-  if (!config.Memory?.enabled || !hasMemoryService()) return result;
+): Promise<void> {
+  if (!config.Memory?.enabled || !hasMemoryService()) return;
 
   try {
     const memoryService = getMemoryService();
 
-    // Extract <remember> tags
-    const rememberRegex = /<remember\s+scope="(global|project)"\s+category="(\w+)">([\s\S]*?)<\/remember>/g;
-    let match;
+    // Use lenient parser (Phase 9.2.1)
+    const parsedTags = parseRememberTags(content);
 
-    while ((match = rememberRegex.exec(content)) !== null) {
-      const [, scope, category, memoryContent] = match;
+    for (const tag of parsedTags) {
+      await memoryService.remember(tag.content, {
+        scope: tag.scope,
+        projectPath: req.projectPath,
+        category: tag.category as MemoryCategory,
+        metadata: {
+          sessionId: req.sessionId,
+          source: 'agent-explicit',
+        },
+      });
 
-      try {
-        await memoryService.remember(memoryContent.trim(), {
-          scope: scope as 'global' | 'project',
-          projectPath: req.projectPath,
-          category: category as MemoryCategory,
-          metadata: {
-            sessionId: req.sessionId,
-            source: 'agent-explicit',
-          },
-        });
-        result.saved++;
-
-        if (config.Memory.debugMode) {
-          console.log(`[Memory] Saved ${scope} memory (${category}):`, memoryContent.trim().slice(0, 50) + '...');
-        }
-      } catch (err) {
-        const errorMsg = `Failed to save ${scope}/${category} memory: ${getErrorMessage(err)}`;
-        result.errors.push(errorMsg);
-        if (config.Memory.debugMode) {
-          console.error('[Memory]', errorMsg);
-        }
+      if (config.Memory.debugMode) {
+        console.log(`[Memory] Saved ${tag.scope} memory (${tag.category}):`, tag.content.slice(0, 50) + '...');
       }
     }
 
     // Auto-extract if enabled
     if (config.Memory.autoExtract) {
-      const autoResult = await autoExtractMemories(content, req, config);
-      result.saved += autoResult.saved;
-      result.errors.push(...autoResult.errors);
+      await autoExtractMemories(content, req, config);
     }
   } catch (err) {
-    result.errors.push(`Memory extraction failed: ${getErrorMessage(err)}`);
     console.error('[Memory] Error extracting memories:', err);
   }
-
-  return result;
 }
 
-async function autoExtractMemories(
-  content: string,
-  req: any,
-  config: any
-): Promise<{ saved: number; errors: string[] }> {
-  const result = { saved: 0, errors: [] as string[] };
+async function autoExtractMemories(content: string, req: any, config: any): Promise<void> {
+  if (!hasMemoryService()) return;
 
-  if (!hasMemoryService()) return result;
+  const memoryService = getMemoryService();
+  const patterns = [
+    {
+      regex: /(?:user prefers?|always use|never use|I (?:like|prefer|want))\s+(.+?)(?:\.|$)/gi,
+      category: 'preference' as MemoryCategory,
+      scope: 'global' as const,
+    },
+    {
+      regex: /(?:decided to|choosing|went with|using)\s+(.+?)\s+(?:for|because|since)/gi,
+      category: 'decision' as MemoryCategory,
+      scope: 'project' as const,
+    },
+  ];
 
-  try {
-    const memoryService = getMemoryService();
-    const patterns = [
-      {
-        regex: /(?:user prefers?|always use|never use|I (?:like|prefer|want))\s+(.+?)(?:\.|$)/gi,
-        category: 'preference' as MemoryCategory,
-        scope: 'global' as const,
-      },
-      {
-        regex: /(?:decided to|choosing|went with|using)\s+(.+?)\s+(?:for|because|since)/gi,
-        category: 'decision' as MemoryCategory,
-        scope: 'project' as const,
-      },
-    ];
-
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.regex.exec(content)) !== null) {
-        const extractedContent = match[1].trim();
-        if (extractedContent.length > 10 && extractedContent.length < 500) {
-          try {
-            await memoryService.remember(extractedContent, {
-              scope: pattern.scope,
-              projectPath: req.projectPath,
-              category: pattern.category,
-              importance: 0.5,
-              metadata: {
-                sessionId: req.sessionId,
-                source: 'auto-extracted',
-              },
-            });
-            result.saved++;
-          } catch (err) {
-            // Collect but don't propagate auto-extraction errors
-            result.errors.push(`Auto-extract failed for ${pattern.category}: ${getErrorMessage(err)}`);
-          }
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.regex.exec(content)) !== null) {
+      const extractedContent = match[1].trim();
+      if (extractedContent.length > 10 && extractedContent.length < 500) {
+        try {
+          await memoryService.remember(extractedContent, {
+            scope: pattern.scope,
+            projectPath: req.projectPath,
+            category: pattern.category,
+            importance: 0.5,
+            metadata: {
+              sessionId: req.sessionId,
+              source: 'auto-extracted',
+            },
+          });
+        } catch (err) {
+          // Silently ignore extraction errors
         }
       }
     }
-  } catch (err) {
-    result.errors.push(`Auto-extraction error: ${getErrorMessage(err)}`);
   }
-
-  return result;
 }
 
 async function initializeClaudeConfig() {
@@ -522,6 +484,83 @@ async function run(options: RunOptions = {}) {
           }).pipeThrough(new SSESerializerTransform()))
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 9.2.2: Memory extraction and tag stripping for non-agent streams
+        // ═══════════════════════════════════════════════════════════════
+
+        // Check if memory processing is enabled
+        if (config.Memory?.enabled && hasMemoryService()) {
+          const memoryProcessor = createMemoryProcessingTransform({
+            req,
+            config,
+            onMemoryExtracted: async (memory) => {
+              try {
+                const memoryService = getMemoryService();
+                await memoryService.remember(memory.content, {
+                  scope: memory.scope,
+                  projectPath: req.projectPath,
+                  category: memory.category as MemoryCategory,
+                  metadata: {
+                    sessionId: req.sessionId,
+                    source: 'agent-explicit',
+                  },
+                });
+                if (config.Memory.debugMode) {
+                  console.log(`[Memory] Saved ${memory.scope} memory (${memory.category}):`, memory.content.slice(0, 50) + '...');
+                }
+              } catch (err) {
+                console.error('[Memory] Error saving memory:', err);
+              }
+            },
+          });
+
+          // Process stream through memory transform
+          const processedStream = (payload as ReadableStream<Uint8Array>)
+            .pipeThrough(new TextDecoderStream())
+            .pipeThrough(new SSEParserTransform() as unknown as TransformStream<string, any>)
+            .pipeThrough(new TransformStream<any, any>({
+              transform(event: any, controller: TransformStreamDefaultController<any>) {
+                const processed = memoryProcessor.processEvent(event);
+                if (processed !== null) {
+                  controller.enqueue(processed);
+                }
+              },
+            }))
+            .pipeThrough(new SSESerializerTransform() as unknown as TransformStream<any, Uint8Array>);
+
+          // Tee for usage tracking
+          const [outputStream, trackingStream] = processedStream.tee();
+
+          // Track usage in background
+          const readForTracking = async (stream: ReadableStream) => {
+            const reader = stream.getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const dataStr = new TextDecoder().decode(value);
+                if (dataStr.startsWith("event: message_delta")) {
+                  const str = dataStr.slice(27);
+                  try {
+                    const message = JSON.parse(str);
+                    sessionUsageCache.put(req.sessionId, message.usage);
+                  } catch {}
+                }
+              }
+            } catch (readError: any) {
+              if (readError.name !== 'AbortError' && readError.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+                console.error('Error in background stream reading:', readError);
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          };
+          readForTracking(trackingStream);
+
+          return done(null, outputStream);
+        }
+
+        // Fallback: no memory processing
         const [originalStream, clonedStream] = payload.tee();
         const read = async (stream: ReadableStream) => {
           const reader = stream.getReader();

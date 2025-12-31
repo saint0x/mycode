@@ -91,6 +91,52 @@ export const sampleSystemPrompts = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// Phase 9: Remember tag test cases
+// ═══════════════════════════════════════════════════════════════════
+
+export const rememberTagCases = {
+  standard: '<remember scope="global" category="preference">User prefers dark mode</remember>',
+  reversed: '<remember category="preference" scope="global">User prefers dark mode</remember>',
+  singleQuotes: "<remember scope='global' category='preference'>User prefers dark mode</remember>",
+  extraWhitespace: '<remember   scope="global"   category="preference"  >User prefers dark mode</remember>',
+  mixedCase: '<remember SCOPE="global" Category="Preference">User prefers dark mode</remember>',
+  multiline: `<remember scope="global" category="preference">
+Multi-line
+content here
+</remember>`,
+  projectScope: '<remember scope="project" category="decision">Use SQLite for storage</remember>',
+  malformedNoScope: '<remember category="preference">Missing scope</remember>',
+  malformedNoCategory: '<remember scope="global">Missing category</remember>',
+  malformedEmpty: '<remember></remember>',
+};
+
+export const contentWithTags = {
+  single: 'Before text <remember scope="global" category="preference">remember me</remember> After text',
+  multiple: 'Start <remember scope="global" category="preference">first memory</remember> middle <remember scope="project" category="decision">second memory</remember> end',
+  noTags: 'Just regular content without any tags',
+  onlyTag: '<remember scope="global" category="preference">only this</remember>',
+  nestedContent: 'Outer <remember scope="global" category="pattern">inner content with <code>tags</code> inside</remember> outer',
+  withNewlines: `Line 1
+<remember scope="global" category="preference">
+memory content
+</remember>
+Line 2`,
+};
+
+// All valid memory categories
+export const validCategories = [
+  'preference',
+  'pattern',
+  'decision',
+  'architecture',
+  'knowledge',
+  'error',
+  'workflow',
+  'context',
+  'code',
+] as const;
+
 // Memory config for testing
 export function createTestMemoryConfig(dbPath: string) {
   return {
