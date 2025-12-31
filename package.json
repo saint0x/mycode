@@ -1,7 +1,7 @@
 {
-  "name": "@musistudio/claude-code-router",
+  "name": "mycode",
   "version": "1.0.73",
-  "description": "Use Claude Code without an Anthropics account and route it to another LLM provider",
+  "description": "MyCode - Route AI coding assistant requests to different LLM providers",
   "bin": {
     "mycode": "dist/cli.js",
     "mc": "dist/cli.js"
