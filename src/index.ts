@@ -27,6 +27,10 @@ import { EventEmitter } from "node:events";
 import { initMemoryService, getMemoryService, hasMemoryService } from "./memory";
 import { getContextBuilder, initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
+import { initHooksManager, getHooksManager, hasHooksManager } from "./hooks";
+import { initPluginManager, getPluginManager } from "./plugins";
+import { initSkillsManager, getSkillsManager, hasSkillsManager } from "./skills";
+import { HOOKS_DIR, PLUGINS_DIR, SKILLS_DIR, LOGS_DIR } from "./constants";
 
 const event = new EventEmitter()
 
@@ -187,6 +191,44 @@ async function run(options: RunOptions = {}) {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // EXTENSIBILITY INITIALIZATION (Phase 10)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Initialize hooks system
+  if (config.Hooks?.enabled !== false) {
+    try {
+      const hooksManager = initHooksManager(config.Hooks || { enabled: true });
+      await hooksManager.loadHooksFromDir(config.Hooks?.directory || HOOKS_DIR);
+      console.log("✅ Hooks system initialized");
+    } catch (err) {
+      console.error("⚠️ Failed to initialize hooks system:", err);
+    }
+  }
+
+  // Initialize plugins system
+  if (config.Plugins?.enabled !== false) {
+    try {
+      const pluginManager = initPluginManager(config.Plugins || { enabled: true });
+      if (config.Plugins?.autoload !== false) {
+        await pluginManager.loadAllPlugins(config.Plugins?.directory || PLUGINS_DIR);
+      }
+      console.log("✅ Plugins system initialized");
+    } catch (err) {
+      console.error("⚠️ Failed to initialize plugins system:", err);
+    }
+  }
+
+  // Initialize skills system
+  if (config.Skills?.enabled !== false) {
+    try {
+      const skillsManager = initSkillsManager();
+      await skillsManager.loadSkillsFromDir(config.Skills?.directory || SKILLS_DIR);
+      console.log("✅ Skills system initialized");
+    } catch (err) {
+      console.error("⚠️ Failed to initialize skills system:", err);
+    }
+  }
 
   let HOST = config.HOST || "127.0.0.1";
 
@@ -253,11 +295,7 @@ async function run(options: RunOptions = {}) {
       providers: config.Providers || config.providers,
       HOST: HOST,
       PORT: servicePort,
-      LOG_FILE: join(
-        homedir(),
-        ".claude-code-router",
-        "claude-code-router.log"
-      ),
+      LOG_FILE: join(LOGS_DIR, "claude-code-router.log"),
     },
     logger: loggerConfig,
   });
@@ -287,7 +325,7 @@ async function run(options: RunOptions = {}) {
 
       for (const agent of agentsManager.getAllAgents()) {
         if (agent.shouldHandle(req, config)) {
-          // 设置agent标识
+          // Set agent identifier
           useAgents.push(agent.name)
 
           // change request body
@@ -368,10 +406,10 @@ async function run(options: RunOptions = {}) {
           let currentToolId = ''
           const toolMessages: any[] = []
           const assistantMessages: any[] = []
-          // 存储Anthropic格式的消息体，区分文本和工具类型
+          // Store Anthropic format message body, distinguish text and tool types
           return done(null, rewriteStream(eventStream, async (data, controller) => {
             try {
-              // 检测工具调用开始
+              // Detect tool call start
               if (data.event === 'content_block_start' && data?.data?.content_block?.name) {
                 const agent = req.agents.find((name: string) => agentsManager.getAgent(name)?.tools.get(data.data.content_block.name))
                 if (agent) {
@@ -383,13 +421,13 @@ async function run(options: RunOptions = {}) {
                 }
               }
 
-              // 收集工具参数
+              // Collect tool arguments
               if (currentToolIndex > -1 && data.data.index === currentToolIndex && data.data?.delta?.type === 'input_json_delta') {
                 currentToolArgs += data.data?.delta?.partial_json;
                 return undefined;
               }
 
-              // 工具调用完成，处理agent调用
+              // Tool call complete, process agent call
               if (currentToolIndex > -1 && data.data.index === currentToolIndex && data.data.type === 'content_block_stop') {
                 try {
                   const args = JSON5.parse(currentToolArgs);
@@ -451,7 +489,7 @@ async function run(options: RunOptions = {}) {
                       continue
                     }
 
-                    // 检查流是否仍然可写
+                    // Check if stream is still writable
                     if (!controller.desiredSize) {
                       break;
                     }
@@ -472,7 +510,7 @@ async function run(options: RunOptions = {}) {
             }catch (error: any) {
               console.error('Unexpected error in stream processing:', error);
 
-              // 处理流提前关闭的错误
+              // Handle stream premature close error
               if (error.code === 'ERR_STREAM_PREMATURE_CLOSE') {
                 abortController.abort();
                 return undefined;

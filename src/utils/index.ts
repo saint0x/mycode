@@ -7,8 +7,13 @@ import {
   DEFAULT_CONFIG,
   HOME_DIR,
   PLUGINS_DIR,
+  HOOKS_DIR,
+  SKILLS_DIR,
+  COMMANDS_DIR,
+  LOGS_DIR,
 } from "../constants";
 import { cleanupLogFiles } from "./logCleanup";
+import { checkAndMigrate } from "./migration";
 
 // Function to interpolate environment variables in config values
 const interpolateEnvVars = (obj: any): any => {
@@ -39,9 +44,16 @@ const ensureDir = async (dir_path: string) => {
 };
 
 export const initDir = async () => {
+  // Check for and perform migration if needed
+  await checkAndMigrate();
+
+  // Create all required directories
   await ensureDir(HOME_DIR);
   await ensureDir(PLUGINS_DIR);
-  await ensureDir(path.join(HOME_DIR, "logs"));
+  await ensureDir(LOGS_DIR);
+  await ensureDir(HOOKS_DIR);
+  await ensureDir(SKILLS_DIR);
+  await ensureDir(COMMANDS_DIR);
 };
 
 const createReadline = () => {
@@ -102,7 +114,7 @@ export const readConfigFile = async () => {
         // Create a minimal default config file
         await writeConfigFile(config);
         console.log(
-            "Created minimal default configuration file at ~/.claude-code-router/config.json"
+            `Created minimal default configuration file at ${CONFIG_FILE}`
         );
         console.log(
             "Please edit this file with your actual configuration."
@@ -173,8 +185,16 @@ export const initConfig = async () => {
   return config;
 };
 
-// 导出日志清理函数
+// Export log cleanup function
 export { cleanupLogFiles };
 
-// 导出更新功能
+// Export update functionality
 export { checkForUpdates, performUpdate } from "./update";
+
+// Export migration functionality
+export {
+  checkAndMigrate,
+  migrateFromLegacy,
+  detectLegacyConfig,
+  detectNewConfig,
+} from "./migration";

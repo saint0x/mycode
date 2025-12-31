@@ -12,9 +12,10 @@ import { runModelSelector } from "./utils/modelSelector"; // ADD THIS LINE
 import { activateCommand } from "./utils/activateCommand";
 import { version } from "../package.json";
 import { spawn, exec } from "child_process";
-import { PID_FILE, REFERENCE_COUNT_FILE } from "./constants";
+import { PID_FILE, REFERENCE_COUNT_FILE, CONFIG_FILE } from "./constants";
 import fs, { existsSync, readFileSync } from "fs";
 import { join } from "path";
+import { migrateFromLegacy, detectLegacyConfig, detectNewConfig } from "./utils/migration";
 
 const command = process.argv[2];
 
@@ -30,6 +31,7 @@ Commands:
   code          Execute claude command
   model         Interactive model selection and configuration
   activate      Output environment variables for shell integration
+  migrate       Migrate config from legacy location
   ui            Open the web UI in browser
   -v, version   Show version information
   -h, help      Show help information
@@ -94,7 +96,7 @@ async function main() {
       await showStatus();
       break;
     case "statusline":
-      // 从stdin读取JSON输入
+      // Read JSON input from stdin
       let inputData = "";
       process.stdin.setEncoding("utf-8");
       process.stdin.on("readable", () => {
@@ -214,7 +216,7 @@ async function main() {
               Router: {},
             });
             console.log(
-              "Created minimal default configuration file at ~/.claude-code-router/config.json"
+              `Created minimal default configuration file at ${CONFIG_FILE}`
             );
             console.log(
               "Please edit this file with your actual configuration."
@@ -328,6 +330,32 @@ async function main() {
     case "-h":
     case "help":
       console.log(HELP_TEXT);
+      break;
+    case "migrate":
+      const hasLegacy = await detectLegacyConfig();
+      const hasNew = await detectNewConfig();
+
+      if (hasNew && !hasLegacy) {
+        console.log('Already using new config location. No migration needed.');
+        break;
+      }
+
+      if (!hasLegacy) {
+        console.log('No legacy config found. Nothing to migrate.');
+        break;
+      }
+
+      console.log('Starting migration...');
+      const result = await migrateFromLegacy();
+
+      if (result.success) {
+        console.log('\nMigration successful!');
+        console.log(`Migrated: ${result.migrated.join(', ')}`);
+        console.log(`Backup: ${result.backupPath}`);
+      } else {
+        console.error('\nMigration failed!');
+        console.error(`Errors: ${result.errors.join(', ')}`);
+      }
       break;
     default:
       console.log(HELP_TEXT);

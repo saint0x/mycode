@@ -163,3 +163,58 @@ export function createTestMemoryConfig(dbPath: string) {
     debugMode: true,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Phase 10 Test Fixtures
+// ═══════════════════════════════════════════════════════════════════
+
+// Sample hook definition
+export const sampleHook = {
+  name: 'test-hook',
+  event: 'PreRoute' as const,
+  priority: 10,
+  enabled: true,
+  handler: async () => ({ continue: true }),
+};
+
+// Sample plugin manifest
+export const samplePluginManifest = {
+  name: 'test-plugin',
+  version: '1.0.0',
+  description: 'Test plugin for unit tests',
+  hooks: [],
+  skills: [],
+  commands: [],
+};
+
+// Sample skill definition
+export const sampleSkill = {
+  name: 'test-skill',
+  description: 'Test skill for unit tests',
+  trigger: '/test',
+  handler: 'test-handler.js',
+};
+
+// Sample command definition
+export const sampleCommand = {
+  name: 'test-command',
+  description: 'Test command for unit tests',
+  handler: 'test-handler.js',
+};
+
+// Hooks config for testing
+export function createTestHooksConfig() {
+  return {
+    enabled: true,
+    timeout: 5000,
+  };
+}
+
+// Plugins config for testing
+export function createTestPluginsConfig() {
+  return {
+    enabled: true,
+    autoload: false,
+    disabled: [],
+  };
+}

@@ -4,8 +4,11 @@ import { checkForUpdates, performUpdate } from "./utils";
 import { join } from "path";
 import fastifyStatic from "@fastify/static";
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync } from "fs";
-import { homedir } from "os";
 import {calculateTokenCount} from "./utils/router";
+import { LOGS_DIR } from "./constants";
+import { getPluginManager, hasPluginManager } from "./plugins";
+import { getHooksManager, hasHooksManager } from "./hooks";
+import { getSkillsManager, hasSkillsManager } from "./skills";
 
 export const createServer = (config: any): Server => {
   const server = new Server(config);
@@ -73,10 +76,10 @@ export const createServer = (config: any): Server => {
     return reply.redirect("/ui/");
   });
 
-  // 版本检查端点
+  // Version check endpoint
   server.app.get("/api/update/check", async (req, reply) => {
     try {
-      // 获取当前版本
+      // Get current version
       const currentVersion = require("../package.json").version;
       const { hasUpdate, latestVersion, changelog } = await checkForUpdates(currentVersion);
 
@@ -91,17 +94,17 @@ export const createServer = (config: any): Server => {
     }
   });
 
-  // 执行更新端点
+  // Perform update endpoint
   server.app.post("/api/update/perform", async (req, reply) => {
     try {
-      // 只允许完全访问权限的用户执行更新
+      // Only allow full access users to perform updates
       const accessLevel = (req as any).accessLevel || "restricted";
       if (accessLevel !== "full") {
         reply.status(403).send("Full access required to perform updates");
         return;
       }
 
-      // 执行更新逻辑
+      // Execute update logic
       const result = await performUpdate();
 
       return result;
@@ -111,10 +114,10 @@ export const createServer = (config: any): Server => {
     }
   });
 
-  // 获取日志文件列表端点
+  // Get log files list endpoint
   server.app.get("/api/logs/files", async (req, reply) => {
     try {
-      const logDir = join(homedir(), ".claude-code-router", "logs");
+      const logDir = LOGS_DIR;
       const logFiles: Array<{ name: string; path: string; size: number; lastModified: string }> = [];
 
       if (existsSync(logDir)) {
@@ -134,7 +137,7 @@ export const createServer = (config: any): Server => {
           }
         }
 
-        // 按修改时间倒序排列
+        // Sort by modification time descending
         logFiles.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
       }
 
@@ -145,18 +148,18 @@ export const createServer = (config: any): Server => {
     }
   });
 
-  // 获取日志内容端点
+  // Get log content endpoint
   server.app.get("/api/logs", async (req, reply) => {
     try {
       const filePath = (req.query as any).file as string;
       let logFilePath: string;
 
       if (filePath) {
-        // 如果指定了文件路径，使用指定的路径
+        // Use specified file path
         logFilePath = filePath;
       } else {
-        // 如果没有指定文件路径，使用默认的日志文件路径
-        logFilePath = join(homedir(), ".claude-code-router", "logs", "app.log");
+        // Use default log file path
+        logFilePath = join(LOGS_DIR, "app.log");
       }
 
       if (!existsSync(logFilePath)) {
@@ -173,18 +176,18 @@ export const createServer = (config: any): Server => {
     }
   });
 
-  // 清除日志内容端点
+  // Clear log content endpoint
   server.app.delete("/api/logs", async (req, reply) => {
     try {
       const filePath = (req.query as any).file as string;
       let logFilePath: string;
 
       if (filePath) {
-        // 如果指定了文件路径，使用指定的路径
+        // Use specified file path
         logFilePath = filePath;
       } else {
-        // 如果没有指定文件路径，使用默认的日志文件路径
-        logFilePath = join(homedir(), ".claude-code-router", "logs", "app.log");
+        // Use default log file path
+        logFilePath = join(LOGS_DIR, "app.log");
       }
 
       if (existsSync(logFilePath)) {
@@ -196,6 +199,72 @@ export const createServer = (config: any): Server => {
       console.error("Failed to clear logs:", error);
       reply.status(500).send({ error: "Failed to clear logs" });
     }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // EXTENSIBILITY API ENDPOINTS (Phase 10)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Plugins endpoints
+  server.app.get("/api/plugins", async () => {
+    if (!hasPluginManager()) return [];
+    const pluginManager = getPluginManager();
+    return pluginManager.getAllPlugins().map(p => ({
+      name: p.manifest.name,
+      version: p.manifest.version,
+      description: p.manifest.description,
+      enabled: p.enabled,
+      hooks: p.hooks.length,
+      skills: p.skills.length,
+      commands: p.commands.length
+    }));
+  });
+
+  server.app.post("/api/plugins/:name/enable", async (req) => {
+    const { name } = req.params as { name: string };
+    if (!hasPluginManager()) return { success: false, name };
+    const pluginManager = getPluginManager();
+    const success = pluginManager.enablePlugin(name);
+    return { success, name };
+  });
+
+  server.app.post("/api/plugins/:name/disable", async (req) => {
+    const { name } = req.params as { name: string };
+    if (!hasPluginManager()) return { success: false, name };
+    const pluginManager = getPluginManager();
+    const success = pluginManager.disablePlugin(name);
+    return { success, name };
+  });
+
+  // Hooks endpoints
+  server.app.get("/api/hooks", async () => {
+    if (!hasHooksManager()) return [];
+    const hooksManager = getHooksManager();
+    return hooksManager.getAllHooks().map(h => ({
+      name: h.name,
+      event: h.event,
+      priority: h.priority ?? 0,
+      enabled: h.enabled !== false
+    }));
+  });
+
+  server.app.get("/api/hooks/events", async () => {
+    return [
+      'PreToolUse', 'PostToolUse', 'PreRoute', 'PostRoute',
+      'SessionStart', 'SessionEnd', 'PreResponse', 'PostResponse',
+      'PreCompact', 'Notification'
+    ];
+  });
+
+  // Skills endpoints
+  server.app.get("/api/skills", async () => {
+    if (!hasSkillsManager()) return [];
+    const skillsManager = getSkillsManager();
+    return skillsManager.getAllSkills().map(s => ({
+      name: s.name,
+      description: s.description,
+      trigger: String(s.trigger)
+    }));
   });
 
   return server;
