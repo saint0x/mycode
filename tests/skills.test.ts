@@ -159,6 +159,78 @@ describe('Skills System', () => {
 
       log.success('Missing skill handled');
     });
+
+    test('executes skill handler successfully', async () => {
+      log.info('Testing successful skill execution');
+
+      // Create a mock skill handler file
+      const handlerPath = join(tempDir, 'mock-skill-handler.js');
+      const handlerCode = `
+        module.exports = async function(context) {
+          return {
+            success: true,
+            output: 'Skill executed with args: ' + JSON.stringify(context.args),
+            actions: []
+          };
+        };
+      `;
+      writeFileSync(handlerPath, handlerCode);
+
+      // Register skill with the handler
+      skillsManager.registerSkill({
+        name: 'mock-skill',
+        description: 'A mock skill for testing',
+        trigger: '/mock',
+        handler: handlerPath,
+      });
+
+      // Execute the skill
+      const result = await skillsManager.executeSkill('mock-skill', {
+        args: { message: 'hello' },
+        request: {},
+        config: {},
+      });
+
+      log.assertEqual(result.success, true, 'execution succeeded');
+      log.assert(result.output.includes('hello'), 'output contains args');
+
+      log.success('Skill executed successfully');
+    });
+
+    test('handles skill timeout', async () => {
+      log.info('Testing skill timeout handling');
+
+      // Create a slow skill handler
+      const handlerPath = join(tempDir, 'slow-skill-handler.js');
+      const handlerCode = `
+        module.exports = async function(context) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return { success: true, output: 'Should not reach here' };
+        };
+      `;
+      writeFileSync(handlerPath, handlerCode);
+
+      // Register skill with short timeout
+      skillsManager.registerSkill({
+        name: 'slow-skill',
+        description: 'A slow skill for timeout testing',
+        trigger: '/slow',
+        handler: handlerPath,
+        timeout: 100, // Very short timeout
+      });
+
+      // Execute the skill (should timeout)
+      const result = await skillsManager.executeSkill('slow-skill', {
+        args: {},
+        request: {},
+        config: {},
+      });
+
+      log.assertEqual(result.success, false, 'execution failed');
+      log.assert(result.output.includes('timeout') || result.output.includes('failed'), 'timeout message');
+
+      log.success('Skill timeout handled');
+    });
   });
 
   describe('getAllSkills()', () => {

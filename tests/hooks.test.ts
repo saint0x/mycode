@@ -129,6 +129,44 @@ describe('Hooks System', () => {
 
       log.success('Hook unregistered');
     });
+
+    test('unregisters multi-event hooks correctly from all events', () => {
+      log.info('Testing multi-event hook unregistration');
+
+      // Register a hook for multiple events
+      hooksManager.registerHook({
+        name: 'multi-event-to-remove',
+        event: ['PreRoute', 'PostRoute', 'PreToolUse'],
+        handler: async () => ({ continue: true }),
+      });
+
+      // Register another hook to ensure we don't break other hooks
+      hooksManager.registerHook({
+        name: 'single-event-keep',
+        event: 'PreRoute',
+        handler: async () => ({ continue: true }),
+      });
+
+      // Verify hooks are registered in all events
+      log.assertEqual(hooksManager.getHooksForEvent('PreRoute').length, 2, 'PreRoute hooks before');
+      log.assertEqual(hooksManager.getHooksForEvent('PostRoute').length, 1, 'PostRoute hooks before');
+      log.assertEqual(hooksManager.getHooksForEvent('PreToolUse').length, 1, 'PreToolUse hooks before');
+
+      // Unregister the multi-event hook
+      hooksManager.unregisterHook('multi-event-to-remove');
+
+      // Verify hook is removed from all events
+      const preRouteHooks = hooksManager.getHooksForEvent('PreRoute');
+      const postRouteHooks = hooksManager.getHooksForEvent('PostRoute');
+      const preToolUseHooks = hooksManager.getHooksForEvent('PreToolUse');
+
+      log.assertEqual(preRouteHooks.length, 1, 'PreRoute hooks after');
+      log.assertEqual(preRouteHooks[0].name, 'single-event-keep', 'remaining PreRoute hook');
+      log.assertEqual(postRouteHooks.length, 0, 'PostRoute hooks after');
+      log.assertEqual(preToolUseHooks.length, 0, 'PreToolUse hooks after');
+
+      log.success('Multi-event hook unregistered from all events');
+    });
   });
 
   describe('Hook Execution', () => {

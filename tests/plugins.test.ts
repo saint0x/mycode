@@ -282,6 +282,66 @@ describe('Plugins System', () => {
     });
   });
 
+  describe('validateDependencies()', () => {
+    test('returns empty array when all dependencies are met', async () => {
+      log.info('Testing valid dependencies');
+
+      // Create two plugins where one depends on the other
+      const pluginsDir = join(tempDir, 'valid-deps');
+      mkdirSync(pluginsDir, { recursive: true });
+
+      // Create base plugin
+      const baseDir = join(pluginsDir, 'base-plugin');
+      const baseManifestDir = join(baseDir, '.claude-plugin');
+      mkdirSync(baseManifestDir, { recursive: true });
+      writeFileSync(join(baseManifestDir, 'plugin.json'), JSON.stringify({
+        name: 'base-plugin',
+        version: '1.0.0',
+      }, null, 2));
+
+      // Create dependent plugin
+      const depDir = join(pluginsDir, 'dependent-plugin');
+      const depManifestDir = join(depDir, '.claude-plugin');
+      mkdirSync(depManifestDir, { recursive: true });
+      writeFileSync(join(depManifestDir, 'plugin.json'), JSON.stringify({
+        name: 'dependent-plugin',
+        version: '1.0.0',
+        dependencies: ['base-plugin'],
+      }, null, 2));
+
+      await pluginManager.loadPlugin(baseDir);
+      await pluginManager.loadPlugin(depDir);
+
+      const missing = pluginManager.validateDependencies();
+      log.assertEqual(missing.length, 0, 'no missing dependencies');
+
+      log.success('Valid dependencies checked');
+    });
+
+    test('returns missing dependencies', async () => {
+      log.info('Testing missing dependencies');
+
+      // Create plugin with missing dependency
+      const pluginDir = join(tempDir, 'missing-dep');
+      const manifestDir = join(pluginDir, '.claude-plugin');
+      mkdirSync(manifestDir, { recursive: true });
+      writeFileSync(join(manifestDir, 'plugin.json'), JSON.stringify({
+        name: 'orphan-plugin',
+        version: '1.0.0',
+        dependencies: ['nonexistent-plugin'],
+      }, null, 2));
+
+      await pluginManager.loadPlugin(pluginDir);
+
+      const missing = pluginManager.validateDependencies();
+      log.assertEqual(missing.length, 1, 'one missing dependency');
+      log.assert(missing[0].includes('orphan-plugin'), 'mentions orphan plugin');
+      log.assert(missing[0].includes('nonexistent-plugin'), 'mentions missing dependency');
+
+      log.success('Missing dependencies detected');
+    });
+  });
+
   describe('Singleton Pattern', () => {
     test('initPluginManager creates singleton', () => {
       log.info('Testing singleton creation');

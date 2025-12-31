@@ -50,9 +50,9 @@ export class HooksManager {
    * Unregister a hook by name
    */
   unregisterHook(name: string): void {
-    for (const [, hooks] of this.hooks) {
+    for (const [event, hooks] of this.hooks) {
       const filtered = hooks.filter(h => h.name !== name);
-      this.hooks.set(hooks[0]?.event as HookEvent || 'Notification', filtered);
+      this.hooks.set(event, filtered);
     }
   }
 
@@ -166,7 +166,21 @@ export class HooksManager {
 
     // Load from file path
     const module = await import(handler) as HookModule;
-    return module.default?.handler as HookHandler || module.handler || (module as unknown as HookHandler);
+
+    // Prioritize explicit handler exports
+    if (module.default?.handler && typeof module.default.handler === 'function') {
+      return module.default.handler;
+    }
+    if (module.handler && typeof module.handler === 'function') {
+      return module.handler;
+    }
+
+    // Fallback only if module.default is a function
+    if (typeof module.default === 'function') {
+      return module.default as HookHandler;
+    }
+
+    throw new Error(`No valid handler found in module: ${handler}`);
   }
 
   private isValidHook(obj: unknown): obj is HookDefinition {

@@ -107,6 +107,9 @@ export class PluginManager {
       }
 
       console.log(`[Plugins] Loaded ${this.plugins.size} plugins`);
+
+      // Validate dependencies after all plugins are loaded
+      this.validateDependencies();
     } catch {
       // Directory doesn't exist yet, that's OK
       console.log(`[Plugins] No plugins directory found at ${dir}`);
@@ -189,6 +192,25 @@ export class PluginManager {
       }
     }
     return commands;
+  }
+
+  /**
+   * Validate that all plugin dependencies are loaded
+   * Returns an array of missing dependency messages
+   */
+  validateDependencies(): string[] {
+    const missing: string[] = [];
+    for (const plugin of this.plugins.values()) {
+      for (const dep of plugin.manifest.dependencies || []) {
+        if (!this.plugins.has(dep)) {
+          missing.push(`Plugin "${plugin.manifest.name}" requires "${dep}" but it is not loaded`);
+        }
+      }
+    }
+    if (missing.length > 0) {
+      console.warn(`[Plugins] Missing dependencies:\n  ${missing.join('\n  ')}`);
+    }
+    return missing;
   }
 }
 
