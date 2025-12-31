@@ -1,5 +1,6 @@
 import { imageAgent } from './image.agent'
 import { subAgentAgent } from '../subagent'
+import { memoryAgent } from './memory.agent'
 import { IAgent } from './type';
 
 export class AgentsManager {
@@ -47,4 +48,5 @@ export class AgentsManager {
 const agentsManager = new AgentsManager()
 agentsManager.registerAgent(imageAgent)
 agentsManager.registerAgent(subAgentAgent)
+agentsManager.registerAgent(memoryAgent)  // Phase 9.2.3: Memory tools
 export default agentsManager

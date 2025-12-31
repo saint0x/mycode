@@ -18,6 +18,7 @@ import { sessionUsageCache } from "./utils/cache";
 import {SSEParserTransform} from "./utils/SSEParser.transform";
 import {SSESerializerTransform} from "./utils/SSESerializer.transform";
 import {rewriteStream} from "./utils/rewriteStream";
+import {createMemoryProcessingTransform} from "./utils/MemoryProcessing.transform";
 import JSON5 from "json5";
 import { IAgent } from "./agents/type";
 import agentsManager from "./agents";
@@ -27,6 +28,62 @@ import { getContextBuilder, initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
 
 const event = new EventEmitter()
+
+// ═══════════════════════════════════════════════════════════════════
+// PHASE 9.2.1: Lenient tag parsing
+// ═══════════════════════════════════════════════════════════════════
+
+interface ParsedRememberTag {
+  scope: 'global' | 'project';
+  category: string;
+  content: string;
+}
+
+/**
+ * Parse <remember> tags with flexible attribute parsing
+ * Handles: attribute order variations, single/double quotes, extra whitespace
+ */
+function parseRememberTags(content: string): ParsedRememberTag[] {
+  const results: ParsedRememberTag[] = [];
+
+  // Match opening tag with any attribute order
+  const tagRegex = /<remember\s+([^>]*)>([\s\S]*?)<\/remember>/gi;
+  let match;
+
+  while ((match = tagRegex.exec(content)) !== null) {
+    const attrs = match[1];
+    const innerContent = match[2];
+
+    // Extract attributes flexibly (handles order, quotes, whitespace)
+    const scopeMatch = attrs.match(/scope\s*=\s*["'](global|project)["']/i);
+    const categoryMatch = attrs.match(/category\s*=\s*["'](\w+)["']/i);
+
+    if (scopeMatch && categoryMatch) {
+      results.push({
+        scope: scopeMatch[1].toLowerCase() as 'global' | 'project',
+        category: categoryMatch[1].toLowerCase(),
+        content: innerContent.trim(),
+      });
+    }
+  }
+
+  return results;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PHASE 9.2.2: Strip remember tags from output
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Strip <remember> tags from content before sending to user
+ * Removes all remember blocks to keep output clean
+ */
+function stripRememberTags(content: string): string {
+  // Remove all remember tags and their content
+  const stripped = content.replace(/<remember\s+[^>]*>[\s\S]*?<\/remember>/gi, '');
+  // Clean up extra whitespace/newlines left behind
+  return stripped.replace(/\n{3,}/g, '\n\n').trim();
+}
 
 // Extract and save memories from response content
 async function extractMemoriesFromResponse(
@@ -39,17 +96,14 @@ async function extractMemoriesFromResponse(
   try {
     const memoryService = getMemoryService();
 
-    // Extract <remember> tags
-    const rememberRegex = /<remember\s+scope="(global|project)"\s+category="(\w+)">([\s\S]*?)<\/remember>/g;
-    let match;
+    // Use lenient parser (Phase 9.2.1)
+    const parsedTags = parseRememberTags(content);
 
-    while ((match = rememberRegex.exec(content)) !== null) {
-      const [, scope, category, memoryContent] = match;
-
-      await memoryService.remember(memoryContent.trim(), {
-        scope: scope as 'global' | 'project',
+    for (const tag of parsedTags) {
+      await memoryService.remember(tag.content, {
+        scope: tag.scope,
         projectPath: req.projectPath,
-        category: category as MemoryCategory,
+        category: tag.category as MemoryCategory,
         metadata: {
           sessionId: req.sessionId,
           source: 'agent-explicit',
@@ -57,7 +111,7 @@ async function extractMemoriesFromResponse(
       });
 
       if (config.Memory.debugMode) {
-        console.log(`[Memory] Saved ${scope} memory (${category}):`, memoryContent.trim().slice(0, 50) + '...');
+        console.log(`[Memory] Saved ${tag.scope} memory (${tag.category}):`, tag.content.slice(0, 50) + '...');
       }
     }
 
@@ -485,6 +539,83 @@ async function run(options: RunOptions = {}) {
           }).pipeThrough(new SSESerializerTransform()))
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 9.2.2: Memory extraction and tag stripping for non-agent streams
+        // ═══════════════════════════════════════════════════════════════
+
+        // Check if memory processing is enabled
+        if (config.Memory?.enabled && hasMemoryService()) {
+          const memoryProcessor = createMemoryProcessingTransform({
+            req,
+            config,
+            onMemoryExtracted: async (memory) => {
+              try {
+                const memoryService = getMemoryService();
+                await memoryService.remember(memory.content, {
+                  scope: memory.scope,
+                  projectPath: req.projectPath,
+                  category: memory.category as MemoryCategory,
+                  metadata: {
+                    sessionId: req.sessionId,
+                    source: 'agent-explicit',
+                  },
+                });
+                if (config.Memory.debugMode) {
+                  console.log(`[Memory] Saved ${memory.scope} memory (${memory.category}):`, memory.content.slice(0, 50) + '...');
+                }
+              } catch (err) {
+                console.error('[Memory] Error saving memory:', err);
+              }
+            },
+          });
+
+          // Process stream through memory transform
+          const processedStream = (payload as ReadableStream<Uint8Array>)
+            .pipeThrough(new TextDecoderStream())
+            .pipeThrough(new SSEParserTransform() as unknown as TransformStream<string, any>)
+            .pipeThrough(new TransformStream<any, any>({
+              transform(event: any, controller: TransformStreamDefaultController<any>) {
+                const processed = memoryProcessor.processEvent(event);
+                if (processed !== null) {
+                  controller.enqueue(processed);
+                }
+              },
+            }))
+            .pipeThrough(new SSESerializerTransform() as unknown as TransformStream<any, Uint8Array>);
+
+          // Tee for usage tracking
+          const [outputStream, trackingStream] = processedStream.tee();
+
+          // Track usage in background
+          const readForTracking = async (stream: ReadableStream) => {
+            const reader = stream.getReader();
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const dataStr = new TextDecoder().decode(value);
+                if (dataStr.startsWith("event: message_delta")) {
+                  const str = dataStr.slice(27);
+                  try {
+                    const message = JSON.parse(str);
+                    sessionUsageCache.put(req.sessionId, message.usage);
+                  } catch {}
+                }
+              }
+            } catch (readError: any) {
+              if (readError.name !== 'AbortError' && readError.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+                console.error('Error in background stream reading:', readError);
+              }
+            } finally {
+              reader.releaseLock();
+            }
+          };
+          readForTracking(trackingStream);
+
+          return done(null, outputStream);
+        }
+
+        // Fallback: no memory processing
         const [originalStream, clonedStream] = payload.tee();
         const read = async (stream: ReadableStream) => {
           const reader = stream.getReader();

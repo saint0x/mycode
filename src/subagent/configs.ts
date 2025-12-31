@@ -33,12 +33,15 @@ When complete, provide a clear summary of your findings.`,
     'LSP',
     'WebSearch',
     'WebFetch',
+    'ccr_recall',  // Phase 9.2.4: Can query memories but not modify
   ],
   disallowedTools: [
     'Write',
     'Edit',
     'Bash',
     'NotebookEdit',
+    'ccr_remember',  // Research agents should not save memories
+    'ccr_forget',    // Research agents should not delete memories
   ],
 };
 
@@ -76,6 +79,9 @@ When complete, provide a summary of changes made.`,
     'Bash',
     'LSP',
     'NotebookEdit',
+    'ccr_remember',  // Phase 9.2.4: Full memory access
+    'ccr_recall',
+    'ccr_forget',
   ],
 };
 
@@ -109,6 +115,7 @@ Provide structured feedback with:
     'Glob',
     'Grep',
     'LSP',
+    'ccr_recall',  // Phase 9.2.4: Can query memories for context
   ],
   disallowedTools: [
     'Write',
@@ -117,6 +124,8 @@ Provide structured feedback with:
     'NotebookEdit',
     'WebSearch',
     'WebFetch',
+    'ccr_remember',  // Review agents should not save memories
+    'ccr_forget',    // Review agents should not delete memories
   ],
 };
 

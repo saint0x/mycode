@@ -2941,3 +2941,363 @@ export function startPoolMonitoring(intervalMs: number = 60000) {
 - [ ] **8.5.10** Add prewarm call to server startup in `src/index.ts`
 - [ ] **8.5.11** Benchmark before/after pre-allocation
 - [ ] **8.5.12** Profile with Chrome DevTools to verify no runtime allocs in hot path
+
+---
+
+## Phase 9: Tool Robustness & Memory Tools Enhancement
+
+> **⚠️ AGENT CONTRIBUTION NOTICE**
+>
+> This section was added by **Claude Opus 4.5** (agent session: 2025-12-31) as part of a tool paradigm review.
+> The analysis compared CCR's implementation against Claude Code's 14+ native tools to identify gaps and improvements.
+>
+> **Context**: During a plan mode review, the user requested a comprehensive analysis of the tool ecosystem.
+> This phase addresses robustness issues found in the memory system's `<remember>` tag approach.
+>
+> **Reference**: See `/Users/deepsaint/.claude/plans/jazzy-seeking-bear.md` for the full analysis.
+
+### 9.0 Problem Statement
+
+The current memory system relies on `<remember>` tags embedded in LLM responses to save memories. This approach has several robustness issues:
+
+1. **Tags visible to users** - `<remember>` tags appear in user-visible output
+2. **No explicit query capability** - Agent cannot ask "what do I remember about X?"
+3. **No delete capability** - Agent cannot remove stale/incorrect memories
+4. **Fragile regex parsing** - Tags must match exact format or fail silently
+5. **Sub-agents don't inherit memory** - Phase 5's memory inheritance incomplete
+
+### 9.1 Claude Code Tool Reference
+
+Based on research, Claude Code has **14 core tools**:
+
+| Category | Tools |
+|----------|-------|
+| **File Operations** | Read, Write, Edit, MultiEdit, Glob, Grep, LS |
+| **Notebooks** | NotebookRead, NotebookEdit |
+| **Execution** | Bash, BashOutput, KillShell |
+| **Web** | WebFetch, WebSearch |
+| **Planning** | TodoWrite, ExitPlanMode |
+| **User Interaction** | AskUserQuestion |
+| **Agent** | Task (sub-agents), Skill |
+| **IDE** | LSP, getDiagnostics, executeCode |
+| **MCP** | ListMcpResources, ReadMcpResource |
+
+**Sources**:
+- https://gist.github.com/bgauryy/0cdb9aa337d01ae5bd0c803943aa36bd
+- https://gist.github.com/wong2/e0f34aac66caf890a332f7b6f9e2ba8f
+
+---
+
+### 9.2 Implementation Phases
+
+#### Phase 9.2.1: Lenient Tag Parsing (Foundation)
+
+**File:** `src/index.ts`
+
+Replace rigid regex with flexible parser that handles:
+- Attribute order variations (`scope` before or after `category`)
+- Extra whitespace
+- Single or double quotes
+
+```typescript
+// Before (rigid):
+const rememberRegex = /<remember\s+scope="(global|project)"\s+category="(\w+)">([\s\S]*?)<\/remember>/g;
+
+// After (flexible):
+function parseRememberTags(content: string): Array<{scope: string, category: string, content: string}> {
+  const results: Array<{scope: string, category: string, content: string}> = [];
+  const tagRegex = /<remember\s+([^>]*)>([\s\S]*?)<\/remember>/gi;
+  let match;
+
+  while ((match = tagRegex.exec(content)) !== null) {
+    const attrs = match[1];
+    const innerContent = match[2];
+
+    // Extract attributes flexibly
+    const scopeMatch = attrs.match(/scope\s*=\s*["'](global|project)["']/i);
+    const categoryMatch = attrs.match(/category\s*=\s*["'](\w+)["']/i);
+
+    if (scopeMatch && categoryMatch) {
+      results.push({
+        scope: scopeMatch[1].toLowerCase(),
+        category: categoryMatch[1].toLowerCase(),
+        content: innerContent.trim()
+      });
+    }
+  }
+
+  return results;
+}
+```
+
+**Checklist:**
+- [ ] **9.2.1.1** Create `parseRememberTags()` function
+- [ ] **9.2.1.2** Update `extractMemoriesFromResponse()` to use new parser
+- [ ] **9.2.1.3** Add tests for various tag formats
+- [ ] **9.2.1.4** Add warning log for malformed tags
+
+---
+
+#### Phase 9.2.2: Strip Remember Tags from Output
+
+**File:** `src/index.ts`
+
+Add tag stripping AFTER memory extraction to hide them from users:
+
+```typescript
+function stripRememberTags(content: string): string {
+  return content.replace(/<remember\s+[^>]*>[\s\S]*?<\/remember>/gi, '').trim();
+}
+
+// In SSE response processing, after extractMemoriesFromResponse():
+// Modify the text content to strip tags before sending to user
+```
+
+**Checklist:**
+- [ ] **9.2.2.1** Create `stripRememberTags()` function
+- [ ] **9.2.2.2** Integrate into SSE stream processing (lines 359-485)
+- [ ] **9.2.2.3** Handle streaming chunks that split tags
+- [ ] **9.2.2.4** Add tests verifying tags don't appear in output
+
+---
+
+#### Phase 9.2.3: Add Memory Tools (ccr_remember, ccr_recall, ccr_forget)
+
+**New file:** `src/agents/memory.agent.ts`
+
+Create a new MemoryAgent that provides explicit tool access to the memory system:
+
+```typescript
+import { IAgent, ITool } from './type';
+import { getMemoryService, hasMemoryService } from '../memory';
+import type { MemoryCategory } from '../memory/types';
+
+const MEMORY_TOOLS: ITool[] = [
+  {
+    name: 'ccr_remember',
+    description: 'Save info to persistent memory. Returns confirmation.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'What to remember' },
+        scope: { type: 'string', enum: ['global', 'project'] },
+        category: {
+          type: 'string',
+          enum: ['preference', 'pattern', 'decision', 'architecture', 'knowledge', 'error', 'workflow']
+        }
+      },
+      required: ['content', 'scope', 'category']
+    },
+    handler: async (args, ctx) => {
+      const memoryService = getMemoryService();
+      const memory = await memoryService.remember(args.content, {
+        scope: args.scope,
+        projectPath: ctx.req.projectPath,
+        category: args.category as MemoryCategory,
+        metadata: { sessionId: ctx.req.sessionId, source: 'tool-explicit' }
+      });
+      return JSON.stringify({ success: true, id: memory.id, saved: args.content.slice(0, 100) });
+    }
+  },
+  {
+    name: 'ccr_recall',
+    description: 'Query memories by semantic search.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        scope: { type: 'string', enum: ['global', 'project', 'both'], default: 'both' },
+        limit: { type: 'number', default: 5, maximum: 20 }
+      },
+      required: ['query']
+    },
+    handler: async (args, ctx) => {
+      const memoryService = getMemoryService();
+      const results = await memoryService.recall(args.query, {
+        scope: args.scope || 'both',
+        projectPath: ctx.req.projectPath,
+        limit: args.limit || 5
+      });
+      return JSON.stringify(results.map(r => ({
+        id: r.memory.id,
+        content: r.memory.content,
+        category: r.memory.category,
+        scope: r.memory.scope,
+        score: r.score.toFixed(2)
+      })));
+    }
+  },
+  {
+    name: 'ccr_forget',
+    description: 'Delete a memory by ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        memoryId: { type: 'string', description: 'Memory ID to delete' }
+      },
+      required: ['memoryId']
+    },
+    handler: async (args, ctx) => {
+      const memoryService = getMemoryService();
+      const deleted = await memoryService.delete(args.memoryId);
+      return JSON.stringify({ success: deleted, id: args.memoryId });
+    }
+  }
+];
+
+export const memoryAgent: IAgent = {
+  name: 'memoryAgent',
+  tools: new Map(MEMORY_TOOLS.map(t => [t.name, t])),
+
+  shouldHandle: (req, config) => {
+    return config.Memory?.enabled && hasMemoryService();
+  },
+
+  reqHandler: (req, config) => {
+    // Tools are injected via the standard agent pipeline
+  }
+};
+```
+
+**Also requires:**
+
+**File:** `src/memory/database.ts` - Add delete method:
+```typescript
+deleteMemory(id: string, table: 'global_memories' | 'project_memories'): boolean {
+  const stmt = this.db.prepare(`DELETE FROM ${table} WHERE id = ?`);
+  const result = stmt.run(id);
+  return result.changes > 0;
+}
+```
+
+**File:** `src/memory/index.ts` - Add delete method to MemoryService:
+```typescript
+async delete(memoryId: string): Promise<boolean> {
+  // Try both tables
+  let deleted = this.db.deleteMemory(memoryId, 'global_memories');
+  if (!deleted) {
+    deleted = this.db.deleteMemory(memoryId, 'project_memories');
+  }
+  return deleted;
+}
+```
+
+**File:** `src/agents/index.ts` - Register the memoryAgent
+
+**Checklist:**
+- [ ] **9.2.3.1** Create `src/agents/memory.agent.ts`
+- [ ] **9.2.3.2** Add `deleteMemory()` to database.ts
+- [ ] **9.2.3.3** Add `delete()` to MemoryService
+- [ ] **9.2.3.4** Register memoryAgent in agents/index.ts
+- [ ] **9.2.3.5** Add tests for all three tools
+- [ ] **9.2.3.6** Update instruction.section.ts to mention tools
+
+---
+
+#### Phase 9.2.4: Sub-Agent Memory Inheritance
+
+**File:** `src/subagent/index.ts`
+
+Ensure sub-agents receive memory context:
+
+```typescript
+import { getContextBuilder, hasContextBuilder } from '../context';
+
+async function buildSubAgentContext(systemPrompt: string, ctx: any): Promise<string> {
+  if (!hasContextBuilder()) return systemPrompt;
+
+  const builder = getContextBuilder();
+  const contextResult = await builder.build(systemPrompt, {
+    messages: [],
+    projectPath: ctx.req.projectPath,
+    sessionId: ctx.req.sessionId
+  });
+
+  return contextResult.systemPrompt;
+}
+```
+
+**File:** `src/subagent/configs.ts` - Add memory tools to allowed lists:
+```typescript
+// Research agents can recall but not modify
+researchAllowedTools: ['Read', 'Glob', 'Grep', 'LSP', 'WebSearch', 'WebFetch', 'ccr_recall'],
+
+// Code agents get full memory access
+codeAllowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'LSP', 'NotebookEdit',
+                   'ccr_remember', 'ccr_recall', 'ccr_forget'],
+
+// Review agents can only recall
+reviewAllowedTools: ['Read', 'Glob', 'Grep', 'LSP', 'ccr_recall'],
+```
+
+**Checklist:**
+- [ ] **9.2.4.1** Add `buildSubAgentContext()` function
+- [ ] **9.2.4.2** Update spawn_subagent handler to use it
+- [ ] **9.2.4.3** Add ccr_recall to research/review allowed tools
+- [ ] **9.2.4.4** Add full memory tools to code agent allowed tools
+- [ ] **9.2.4.5** Add tests for sub-agent memory inheritance
+
+---
+
+### 9.3 Critical Files Summary
+
+| File | Phase | Changes |
+|------|-------|---------|
+| `src/index.ts` | 9.2.1, 9.2.2 | Lenient parsing, tag stripping |
+| `src/agents/memory.agent.ts` | 9.2.3 | **NEW** - Memory tools |
+| `src/agents/index.ts` | 9.2.3 | Register memoryAgent |
+| `src/memory/index.ts` | 9.2.3 | Add `delete()` method |
+| `src/memory/database.ts` | 9.2.3 | Add `deleteMemory()` method |
+| `src/subagent/index.ts` | 9.2.4 | Memory context injection |
+| `src/subagent/configs.ts` | 9.2.4 | Memory tools in allowed lists |
+| `src/context/sections/instruction.section.ts` | 9.2.3 | Update instructions |
+
+---
+
+### 9.4 Execution Order
+
+1. **Phase 9.2.1** - Lenient tag parsing (foundation for other phases)
+2. **Phase 9.2.2** - Strip tags from output (uses lenient parser)
+3. **Phase 9.2.3** - Add memory tools (requires delete method)
+4. **Phase 9.2.4** - Sub-agent memory inheritance (depends on tools)
+
+---
+
+### 9.5 Testing Checklist
+
+- [ ] `<remember>` tags no longer visible in user output
+- [ ] Tags with reversed attribute order parse correctly
+- [ ] Tags with single quotes parse correctly
+- [ ] Extra whitespace in tags is handled
+- [ ] `ccr_remember` tool saves memory and returns confirmation with ID
+- [ ] `ccr_recall` tool queries memories with relevance scores
+- [ ] `ccr_forget` tool deletes memory by ID and confirms
+- [ ] Sub-agents receive injected memory context in system prompt
+- [ ] Research sub-agents can only use `ccr_recall`
+- [ ] Code sub-agents have full memory tool access
+- [ ] Review sub-agents can only use `ccr_recall`
+- [ ] Memory tools don't overload context (compact descriptions)
+
+---
+
+### 9.6 ADR-004: Hybrid Memory Access (Auto-Inject + Tools)
+
+**Decision**: Keep automatic memory injection AND add optional explicit tools.
+
+**Rationale**:
+- Preserves zero-friction automatic injection for most use cases (ADR-001)
+- Adds explicit control when agent needs it (query, delete, confirmation)
+- Tools are optional - agent can still use `<remember>` tags if preferred
+- Gives agent flexibility to choose approach based on situation
+
+**Consequences**:
+- Slightly more complex memory instructions
+- Two ways to save memories (tags vs tool) - need clear guidance
+- Additional token overhead for tool definitions (~200 tokens)
+
+**Guidance for Agent**:
+- Use automatic injection for reading (it's already there)
+- Use `<remember>` tags for simple saves during response
+- Use `ccr_remember` tool when confirmation is needed
+- Use `ccr_recall` tool for explicit queries not covered by auto-inject
+- Use `ccr_forget` tool to clean up outdated memories

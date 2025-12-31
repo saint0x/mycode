@@ -31,7 +31,10 @@ When you learn something important during this conversation:
 - Project decisions → Will be remembered for this project
 - Patterns discovered → Will be remembered appropriately
 
-You don't need to call any tools to access memory - relevant memories are automatically injected into each request.
+**Memory Tools Available:**
+- **ccr_remember**: Save new memories explicitly (returns confirmation with ID)
+- **ccr_recall**: Query memories by semantic search (find specific information)
+- **ccr_forget**: Delete a memory by ID (remove outdated information)
 
 **When to explicitly save new memories:**
 - When the user states a preference ("I prefer...", "Always use...", "Never...")
@@ -39,10 +42,12 @@ You don't need to call any tools to access memory - relevant memories are automa
 - When you discover a project pattern worth preserving
 - When you solve a tricky problem that might recur
 
-To save a memory, include in your response:
+To save a memory inline (auto-extracted, no confirmation):
 <remember scope="global|project" category="preference|pattern|decision|architecture|knowledge|error|workflow">
 Content to remember
 </remember>
+
+Or use the ccr_remember tool for explicit save with confirmation.
 </memory_instructions>`;
 
 function estimateTokens(text: string): number {
