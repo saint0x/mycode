@@ -10,7 +10,7 @@ import type {
   RequestAnalysis,
 } from './types';
 import { ContextPriority } from './types';
-import { buildMemorySections, buildEmphasisSections, buildInstructionSections } from './sections';
+import { buildMemorySections, buildEmphasisSections, buildInstructionSections, buildEngineeringSections } from './sections';
 import {
   ContextBuilderError,
   ErrorCode,
@@ -19,10 +19,11 @@ import {
 
 const DEFAULT_CONFIG: ContextBuilderConfig = {
   maxTokens: 8000,
-  reserveTokensForResponse: 4000,
+  reserveTokensForResponse: 10000,
   enableMemory: true,
   enableProjectContext: true,
   enableEmphasis: true,
+  enableEngineering: true,
   debugMode: false,
 };
 
@@ -103,6 +104,22 @@ export class DynamicContextBuilder {
         sections.push(...emphasisSections);
       } catch (error) {
         const errorMsg = `Emphasis sections error: ${error instanceof Error ? error.message : String(error)}`;
+        this.buildErrors.push(errorMsg);
+        if (this.config.debugMode) {
+          console.error('[Context Builder]', errorMsg);
+        }
+      }
+    }
+
+    // Engineering sections (if enabled)
+    if (this.config.enableEngineering !== false) {
+      try {
+        const engineeringSections = buildEngineeringSections(analysis, {
+          enabled: this.config.enableEngineering
+        });
+        sections.push(...engineeringSections);
+      } catch (error) {
+        const errorMsg = `Engineering sections error: ${error instanceof Error ? error.message : String(error)}`;
         this.buildErrors.push(errorMsg);
         if (this.config.debugMode) {
           console.error('[Context Builder]', errorMsg);
@@ -354,6 +371,12 @@ export class DynamicContextBuilder {
     // Add emphasis sections
     const emphasisSections = sections.filter(s => s.category === 'emphasis');
     for (const section of emphasisSections) {
+      parts.push(section.content);
+    }
+
+    // Add engineering sections
+    const engineeringSections = sections.filter(s => s.category === 'engineering');
+    for (const section of engineeringSections) {
       parts.push(section.content);
     }
 

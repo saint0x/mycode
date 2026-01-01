@@ -426,3 +426,305 @@ describe('Context Builder with Memory', () => {
     log.success('Memory sections included');
   });
 });
+
+describe('Context Builder with Engineering Sections', () => {
+  let log: TestLogger;
+  let builder: DynamicContextBuilder;
+
+  beforeEach(() => {
+    log = createLogger('EngineeringSections');
+    builder = new DynamicContextBuilder({
+      maxTokens: 8000,
+      reserveTokensForResponse: 2000,
+      enableMemory: false,
+      enableEmphasis: true,
+      enableEngineering: true,
+      debugMode: true,
+    });
+  });
+
+  afterEach(() => {
+    log.finish();
+  });
+
+  test('includes engineering sections in build', async () => {
+    log.info('Testing engineering sections inclusion');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    log.info('Build result', {
+      sectionCount: result.sections.length,
+      sectionNames: result.sections.map(s => s.name),
+    });
+
+    const engineeringSections = result.sections.filter(s => s.category === 'engineering');
+    log.assertGreaterThan(engineeringSections.length, 0, 'engineering section count');
+
+    log.assertIncludes(result.systemPrompt, 'engineering_principles', 'engineering principles tag');
+    log.assertIncludes(result.systemPrompt, 'tool_usage_guidelines', 'tool guidelines tag');
+
+    log.success('Engineering sections included');
+  });
+
+  test('respects enableEngineering=false config', async () => {
+    log.info('Testing engineering sections disable');
+
+    const builderNoEngineering = new DynamicContextBuilder({
+      maxTokens: 8000,
+      reserveTokensForResponse: 2000,
+      enableMemory: false,
+      enableEmphasis: true,
+      enableEngineering: false,
+      debugMode: true,
+    });
+
+    const result = await builderNoEngineering.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    const engineeringSections = result.sections.filter(s => s.category === 'engineering');
+    log.assertEqual(engineeringSections.length, 0, 'engineering section count');
+
+    log.success('Engineering sections disabled correctly');
+  });
+
+  test('fits engineering sections within token budget', async () => {
+    log.info('Testing engineering sections token budget');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    // Calculate available budget
+    const maxTokens = 8000;
+    const reserve = 2000;
+    const originalTokens = Math.ceil(sampleSystemPrompts.simple.length / 4);
+    const availableTokens = maxTokens - reserve - originalTokens;
+
+    log.info('Token budget', {
+      maxTokens,
+      reserve,
+      originalTokens,
+      availableTokens,
+      totalTokens: result.totalTokens,
+    });
+
+    // Should not exceed available tokens significantly
+    log.assertLessThan(result.totalTokens, availableTokens + 500, 'total tokens within budget');
+
+    log.success('Engineering sections fit within budget');
+  });
+
+  test('includes task-specific content for coding tasks', async () => {
+    log.info('Testing task-specific engineering content');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    const engineeringSections = result.sections.filter(s => s.category === 'engineering');
+    const taskSection = engineeringSections.find(s => s.id === 'task-engineering');
+
+    log.assertDefined(taskSection, 'task-specific section');
+    log.assertIncludes(taskSection.content, 'implementation', 'implementation guidance');
+
+    log.success('Task-specific content included');
+  });
+
+  test('includes task-specific content for debug tasks', async () => {
+    log.info('Testing debug task-specific content');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.debugRequest,
+    });
+
+    const engineeringSections = result.sections.filter(s => s.category === 'engineering');
+    const taskSection = engineeringSections.find(s => s.id === 'task-engineering');
+
+    log.assertDefined(taskSection, 'task-specific section');
+    log.assertIncludes(taskSection.content, 'debugging', 'debugging guidance');
+
+    log.success('Debug task-specific content included');
+  });
+
+  test('includes task-specific content for refactor tasks', async () => {
+    log.info('Testing refactor task-specific content');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.refactorRequest,
+    });
+
+    const engineeringSections = result.sections.filter(s => s.category === 'engineering');
+    const taskSection = engineeringSections.find(s => s.id === 'task-engineering');
+
+    log.assertDefined(taskSection, 'task-specific section');
+    log.assertIncludes(taskSection.content, 'refactoring', 'refactoring guidance');
+
+    log.success('Refactor task-specific content included');
+  });
+
+  test('prioritizes HIGH engineering sections over MEDIUM sections', async () => {
+    log.info('Testing engineering section priorities');
+
+    // Create very tight budget
+    const tightBuilder = new DynamicContextBuilder({
+      maxTokens: 2000,
+      reserveTokensForResponse: 500,
+      enableMemory: false,
+      enableEmphasis: true,
+      enableEngineering: true,
+      debugMode: true,
+    });
+
+    const result = await tightBuilder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    log.info('Trimming result', {
+      includedCount: result.sections.length,
+      trimmedCount: result.trimmedSections.length,
+    });
+
+    const engineeringSections = result.sections.filter(s => s.category === 'engineering');
+
+    // If any engineering sections are included, HIGH priority ones should be there
+    if (engineeringSections.length > 0) {
+      const hasCorePrinciples = engineeringSections.some(s => s.id === 'core-principles');
+      const hasToolGuidelines = engineeringSections.some(s => s.id === 'tool-guidelines');
+
+      log.info('HIGH priority sections', { hasCorePrinciples, hasToolGuidelines });
+
+      // At least one HIGH priority section should be included
+      log.assert(
+        hasCorePrinciples || hasToolGuidelines,
+        'Should include at least one HIGH priority section'
+      );
+    }
+
+    log.success('Priority ordering verified');
+  });
+
+  test('includes all core engineering topics', async () => {
+    log.info('Testing core engineering topics');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    const coreTopics = [
+      'Error Handling',
+      'Modular Design',
+      'Architecture',
+      'Anti-Over-Engineering',
+      'Memory Efficiency',
+      'Code Quality Standards',
+      'Type Safety',
+      'Testing Expectations',
+    ];
+
+    for (const topic of coreTopics) {
+      log.assertIncludes(result.systemPrompt, topic, `topic: ${topic}`);
+    }
+
+    log.success('All core engineering topics included');
+  });
+
+  test('includes tool usage patterns', async () => {
+    log.info('Testing tool usage patterns');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    const toolPatterns = [
+      'Parallel vs Sequential',
+      'Error Handling for Tools',
+      'Tool Call Best Practices',
+      'Common Patterns',
+      'CORRECT',
+      'WRONG',
+    ];
+
+    for (const pattern of toolPatterns) {
+      log.assertIncludes(result.systemPrompt, pattern, `pattern: ${pattern}`);
+    }
+
+    log.success('Tool usage patterns included');
+  });
+
+  test('includes system features documentation', async () => {
+    log.info('Testing system features documentation');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    const systemFeatures = [
+      'Agents System',
+      'memoryAgent',
+      'imageAgent',
+      'Skills System',
+      'Hooks System',
+      'PreToolUse',
+      'PostToolUse',
+    ];
+
+    for (const feature of systemFeatures) {
+      log.assertIncludes(result.systemPrompt, feature, `feature: ${feature}`);
+    }
+
+    log.success('System features documented');
+  });
+
+  test('orders sections correctly with engineering sections', async () => {
+    log.info('Testing section ordering with engineering');
+
+    const result = await builder.build(sampleSystemPrompts.simple, {
+      messages: sampleMessages.codeRequest,
+    });
+
+    const promptParts = result.systemPrompt.split('\n\n');
+
+    // Find positions
+    let instructionPos = -1;
+    let emphasisPos = -1;
+    let engineeringPos = -1;
+    let originalPos = -1;
+
+    for (let i = 0; i < promptParts.length; i++) {
+      if (promptParts[i].includes('memory_instructions')) {
+        instructionPos = i;
+      }
+      if (promptParts[i].includes('<emphasis>')) {
+        emphasisPos = i;
+      }
+      if (promptParts[i].includes('engineering_principles')) {
+        engineeringPos = i;
+      }
+      if (promptParts[i] === sampleSystemPrompts.simple) {
+        originalPos = i;
+      }
+    }
+
+    log.info('Section positions', { instructionPos, emphasisPos, engineeringPos, originalPos });
+
+    // Instructions should come before emphasis
+    if (instructionPos >= 0 && emphasisPos >= 0) {
+      log.assert(instructionPos < emphasisPos, 'Instructions before emphasis');
+    }
+
+    // Emphasis should come before engineering
+    if (emphasisPos >= 0 && engineeringPos >= 0) {
+      log.assert(emphasisPos < engineeringPos, 'Emphasis before engineering');
+    }
+
+    // Engineering should come before original
+    if (engineeringPos >= 0 && originalPos >= 0) {
+      log.assert(engineeringPos < originalPos, 'Engineering before original');
+    }
+
+    log.success('Section ordering verified');
+  });
+});

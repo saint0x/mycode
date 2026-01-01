@@ -10,7 +10,7 @@ export enum ContextPriority {
   OPTIONAL = 0       // Only if space permits
 }
 
-export type ContextCategory = 'memory' | 'project' | 'session' | 'instruction' | 'emphasis' | 'system';
+export type ContextCategory = 'memory' | 'project' | 'session' | 'instruction' | 'emphasis' | 'engineering' | 'system';
 
 export interface ContextSection {
   id: string;
@@ -47,5 +47,6 @@ export interface ContextBuilderConfig {
   enableMemory: boolean;
   enableProjectContext: boolean;
   enableEmphasis: boolean;
+  enableEngineering?: boolean;
   debugMode: boolean;
 }

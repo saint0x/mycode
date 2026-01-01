@@ -5,3 +5,4 @@
 export { buildMemorySections } from './memory.section';
 export { buildEmphasisSections } from './emphasis.section';
 export { buildInstructionSections } from './instruction.section';
+export { buildEngineeringSections } from './engineering.section';
