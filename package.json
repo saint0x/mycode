@@ -1,7 +1,6 @@
 {
   "name": "mycode",
   "version": "1.0.73",
-  "type": "module",
   "description": "MyCode - Route AI coding assistant requests to different LLM providers",
   "bin": {
     "mycode": "dist/cli.js",
