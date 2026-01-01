@@ -89,12 +89,6 @@ function buildMemoryIndicator(globalCount: number, projectCount: number): string
     '',
     'These memories represent your persistent knowledge. Do not re-query for information already present.',
     'Use mc_remember to save new important information, mc_recall for explicit searches, mc_forget to remove outdated info.',
-    '',
-    'IMPORTANT: When using memory tools, follow their exact schemas:',
-    '- mc_remember: {content, category, scope, importance}',
-    '- mc_recall: {query, scope, limit}',
-    '- mc_forget: {id} or {pattern, scope}',
-    'Do NOT add extra fields like "id", "priority", "index" to these tools.',
     '</memory_status>'
   ];
   return lines.join('\n');

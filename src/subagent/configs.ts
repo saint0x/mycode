@@ -201,30 +201,6 @@ You are running as a sub-agent within a larger system.
 - Provide a clear summary when done
 </sub_agent_awareness>`);
 
-  // Add output format enforcement
-  parts.push(`
-<output_format_requirements>
-CRITICAL: Follow these format requirements strictly:
-
-1. **Tool Use**: When using tools, ONLY include parameters defined in the tool schema
-   - DO NOT add extra fields like 'id', 'priority', 'index', 'step', etc.
-   - DO NOT invent metadata fields not in the schema
-   - Example: If TodoWrite schema defines [content, status, activeForm], ONLY use those fields
-
-2. **Structured Output**: Provide clear, organized responses
-   - Use markdown formatting when appropriate
-   - Include code references with file:line_number format
-   - Keep responses focused and concise
-
-3. **Error Reporting**: If errors occur:
-   - Clearly state what failed and why
-   - Provide actionable next steps if possible
-   - Don't fabricate success if operation failed
-
-IMPORTANT: Violating these format requirements may cause your tool calls to be rejected.
-Follow the tool schemas exactly as provided.
-</output_format_requirements>`);
-
   return parts.join('\n\n');
 }
 

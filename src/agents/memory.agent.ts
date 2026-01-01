@@ -9,6 +9,7 @@
  */
 
 import type { IAgent, ITool, AgentContext } from './type';
+import type { CCRConfig } from '../config/schema';
 import { getMemoryService, hasMemoryService } from '../memory';
 import type { MemoryCategory } from '../memory/types';
 
@@ -52,7 +53,14 @@ const rememberTool: ITool = {
     },
     required: ['content', 'scope', 'category'],
   },
-  handler: async (args: { content: string; scope: 'global' | 'project'; category: string }, ctx: AgentContext) => {
+  handler: async (args: Record<string, unknown>, ctx: AgentContext) => {
+    // Add type guard
+    const { content, scope, category } = args as {
+      content: string;
+      scope: 'global' | 'project';
+      category: string;
+    };
+
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({
@@ -62,12 +70,12 @@ const rememberTool: ITool = {
       }
 
       const memoryService = getMemoryService();
-      const memory = await memoryService.remember(args.content, {
-        scope: args.scope,
-        projectPath: ctx.req?.projectPath,
-        category: args.category as MemoryCategory,
+      const memory = await memoryService.remember(content, {
+        scope,
+        projectPath: ctx.req.projectPath,
+        category: category as MemoryCategory,
         metadata: {
-          sessionId: ctx.req?.sessionId,
+          sessionId: ctx.req.sessionId,
           source: 'tool-explicit',
         },
       });
@@ -75,9 +83,9 @@ const rememberTool: ITool = {
       return JSON.stringify({
         success: true,
         id: memory.id,
-        scope: args.scope,
-        category: args.category,
-        saved: args.content.slice(0, 100) + (args.content.length > 100 ? '...' : ''),
+        scope,
+        category,
+        saved: content.slice(0, 100) + (content.length > 100 ? '...' : ''),
       });
     } catch (err) {
       return JSON.stringify({
@@ -117,7 +125,14 @@ const recallTool: ITool = {
     },
     required: ['query'],
   },
-  handler: async (args: { query: string; scope?: 'global' | 'project' | 'both'; limit?: number }, ctx: AgentContext) => {
+  handler: async (args: Record<string, unknown>, ctx: AgentContext) => {
+    // Add type guard
+    const { query, scope, limit } = args as {
+      query: string;
+      scope?: 'global' | 'project' | 'both';
+      limit?: number;
+    };
+
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({
@@ -127,10 +142,10 @@ const recallTool: ITool = {
       }
 
       const memoryService = getMemoryService();
-      const results = await memoryService.recall(args.query, {
-        scope: args.scope || 'both',
-        projectPath: ctx.req?.projectPath,
-        limit: args.limit || 5,
+      const results = await memoryService.recall(query, {
+        scope: scope || 'both',
+        projectPath: ctx.req.projectPath,
+        limit: limit || 5,
       });
 
       return JSON.stringify({
@@ -176,7 +191,12 @@ const forgetTool: ITool = {
     },
     required: ['memoryId', 'scope'],
   },
-  handler: async (args: { memoryId: string; scope: 'global' | 'project' }, _ctx: unknown) => {
+  handler: async (args: Record<string, unknown>, _ctx: AgentContext) => {
+    // Add type guard
+    const { memoryId, scope } = args as {
+      memoryId: string;
+      scope: 'global' | 'project';
+    };
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({
@@ -188,25 +208,25 @@ const forgetTool: ITool = {
       const memoryService = getMemoryService();
 
       // Check if memory exists
-      const memory = args.scope === 'global'
-        ? memoryService.getGlobalMemory(args.memoryId)
-        : memoryService.getProjectMemory(args.memoryId);
+      const memory = scope === 'global'
+        ? memoryService.getGlobalMemory(memoryId)
+        : memoryService.getProjectMemory(memoryId);
 
       if (!memory) {
         return JSON.stringify({
           success: false,
-          error: `Memory not found: ${args.memoryId}`,
+          error: `Memory not found: ${memoryId}`,
         });
       }
 
-      memoryService.deleteMemory(args.memoryId, args.scope);
+      memoryService.deleteMemory(memoryId, scope);
 
       return JSON.stringify({
         success: true,
         deleted: {
-          id: args.memoryId,
+          id: memoryId,
           content: memory.content.slice(0, 50) + '...',
-          scope: args.scope,
+          scope,
         },
       });
     } catch (err) {
@@ -233,15 +253,14 @@ export const memoryAgent: IAgent = {
   /**
    * Only activate if memory service is enabled and available
    */
-  shouldHandle(_req: AgentContext['req'], config: Record<string, unknown>): boolean {
-    const memory = config.Memory as Record<string, unknown> | undefined;
-    return memory?.enabled === true && hasMemoryService();
+  shouldHandle(_req: AgentContext['req'], config: CCRConfig): boolean {
+    return config.Memory?.enabled === true && hasMemoryService();
   },
 
   /**
    * No request modifications needed - tools are injected automatically
    */
-  reqHandler(_req: AgentContext['req'], _config: Record<string, unknown>): void {
+  reqHandler(_req: AgentContext['req'], _config: CCRConfig): void {
     // Memory tools are injected via the standard agent pipeline
     // System prompt already has memory instructions from context builder
   },

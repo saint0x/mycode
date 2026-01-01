@@ -1,3 +1,5 @@
+import type { CCRConfig } from '../config/schema';
+
 // Agent context interface
 export interface AgentContext {
   req: {
@@ -9,9 +11,11 @@ export interface AgentContext {
       [key: string]: unknown;
     };
     headers?: Record<string, string | string[] | undefined>;
+    projectPath?: string;
+    sessionId?: string;
     [key: string]: unknown;
   };
-  config: Record<string, unknown>;
+  config: CCRConfig;
   [key: string]: unknown;
 }
 
@@ -36,9 +40,9 @@ export interface IAgent {
 
   tools: Map<string, ITool>;
 
-  shouldHandle: (req: AgentContext['req'], config: Record<string, unknown>) => boolean;
+  shouldHandle: (req: AgentContext['req'], config: CCRConfig) => boolean;
 
-  reqHandler: (req: AgentContext['req'], config: Record<string, unknown>) => void;
+  reqHandler: (req: AgentContext['req'], config: CCRConfig) => void;
 
-  resHandler?: (payload: Record<string, unknown>, config: Record<string, unknown>) => void;
+  resHandler?: (payload: Record<string, unknown>, config: CCRConfig) => void;
 }

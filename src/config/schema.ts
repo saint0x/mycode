@@ -42,6 +42,7 @@ export interface CCRConfig {
   StatusLine?: StatusLineConfig;
   LOG?: boolean;
   LOG_LEVEL?: string;
+  DEBUG_TOOL_TRANSFORM?: boolean;
   CLAUDE_PATH?: string;
   NON_INTERACTIVE_MODE?: boolean;
 }

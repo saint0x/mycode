@@ -19,7 +19,7 @@ import { version } from "../package.json";
 import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { Context } from "hono";
 import { stream } from "hono/streaming";
-import { parseToolArguments, validateToolSchema, safeJSONParse, validateOpenAIToolCall, filterToolArguments } from "./utils/toolValidation";
+import { parseToolArguments, validateToolSchema, safeJSONParse, validateOpenAIToolCall } from "./utils/toolValidation";
 import { ToolTransformationError, ErrorCode } from "./errors/types";
 import { executeWithRetry, isRateLimitError, isNetworkError } from "./errors/utils";
 import { appendFileSync } from "fs";
@@ -446,11 +446,7 @@ function openAIToAnthropic(response: OpenAIResponse, debugMode = false): Record<
           continue; // Skip tool call with unparseable arguments
         }
 
-        let toolInput = parseResult.arguments || {};
-
-        // Filter out LLM-added metadata fields not in the tool schema
-        // This prevents validation errors from extra fields like 'id', 'priority', etc.
-        toolInput = filterToolArguments(toolInput, undefined, debugMode);
+        const toolInput = parseResult.arguments || {};
 
         if (debugMode) {
           const successData = {
@@ -459,8 +455,8 @@ function openAIToAnthropic(response: OpenAIResponse, debugMode = false): Record<
             argumentKeys: Object.keys(toolInput),
             argumentValues: toolInput,
           };
-          console.log('[ToolTransform] Successfully parsed and filtered tool arguments:', successData);
-          debugLog('[ToolTransform] Successfully parsed and filtered tool arguments:', successData);
+          console.log('[ToolTransform] Successfully parsed tool arguments:', successData);
+          debugLog('[ToolTransform] Successfully parsed tool arguments:', successData);
         }
 
         content.push({

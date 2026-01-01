@@ -90,6 +90,12 @@ export enum ErrorCode {
   AGENT_TOOL_EXECUTION_FAILED = 'AGT_10002',
   AGENT_HANDLER_ERROR = 'AGT_10003',
 
+  // Tool transformation errors (11xxx)
+  TOOL_SCHEMA_INVALID = 'TOOL_11001',
+  TOOL_ARGUMENTS_PARSE_FAILED = 'TOOL_11002',
+  TOOL_TRANSFORMATION_FAILED = 'TOOL_11003',
+  TOOL_VALIDATION_FAILED = 'TOOL_11004',
+
   // Generic errors
   UNKNOWN_ERROR = 'ERR_0001',
   VALIDATION_ERROR = 'ERR_0002',
@@ -703,5 +709,55 @@ export class AgentError extends CCRError {
       cause: options.cause,
     });
     this.name = 'AgentError';
+  }
+}
+
+export class ToolTransformationError extends CCRError {
+  constructor(
+    message: string,
+    options: {
+      code?: ErrorCode;
+      operation: string;
+      toolName?: string;
+      provider?: string;
+      rawData?: unknown;
+      cause?: Error;
+      details?: Record<string, unknown>;
+    }
+  ) {
+    super(message, {
+      code: options.code ?? ErrorCode.TOOL_TRANSFORMATION_FAILED,
+      severity: ErrorSeverity.HIGH,
+      context: {
+        component: 'ToolTransformer',
+        operation: options.operation,
+        details: {
+          ...options.details,
+          toolName: options.toolName,
+          provider: options.provider,
+          // Sanitize rawData to prevent logging sensitive info
+          rawDataPreview: options.rawData
+            ? JSON.stringify(options.rawData).slice(0, 200) + '...'
+            : undefined,
+        },
+      },
+      recoverable: true,
+      suggestions: [
+        {
+          action: 'Enable debug logging to see full transformation data',
+          reason: 'Debug mode shows exact data causing transformation failures',
+          automatic: false,
+          priority: 1,
+        },
+        {
+          action: 'Check provider API compatibility',
+          reason: 'Some providers may return non-standard tool formats',
+          automatic: false,
+          priority: 2,
+        },
+      ],
+      cause: options.cause,
+    });
+    this.name = 'ToolTransformationError';
   }
 }

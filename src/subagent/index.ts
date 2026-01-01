@@ -3,7 +3,8 @@
  * Provides ability to spawn specialized sub-agents for complex tasks
  */
 
-import type { IAgent, ITool } from '../agents/type';
+import type { IAgent, ITool, AgentContext } from '../agents/type';
+import type { CCRConfig } from '../config/schema';
 import { SUBAGENT_DEPTH_HEADER } from '../utils/tokens';
 import { SubAgentRunner } from './runner';
 import type {
@@ -11,7 +12,6 @@ import type {
   SpawnSubAgentInput,
   SubAgentResult,
   SubAgentSystemConfig,
-  RouterConfig,
 } from './types';
 
 // Default configuration
@@ -40,7 +40,7 @@ export class SubAgentAgent implements IAgent {
    * Determine if this agent should handle the request
    * Only activates if sub-agents are enabled and we're not at max depth
    */
-  shouldHandle(req: { headers?: Record<string, string> }, config: RouterConfig): boolean {
+  shouldHandle(req: AgentContext['req'], config: CCRConfig): boolean {
     const subAgentConfig = this.getConfig(config);
 
     // Check if sub-agents are enabled
@@ -61,13 +61,13 @@ export class SubAgentAgent implements IAgent {
    * Modify request before processing
    * Injects sub-agent spawning instructions into system prompt
    */
-  reqHandler(req: { headers?: Record<string, string>; body?: { system?: Array<{ type: string; text: string }> }; subagentDepth?: number; isSubAgent?: boolean }, config: RouterConfig): void {
+  reqHandler(req: AgentContext['req'], config: CCRConfig): void {
     const subAgentConfig = this.getConfig(config);
     const currentDepth = this.getDepthFromRequest(req);
 
     // Add depth tracking to request
-    req.subagentDepth = currentDepth;
-    req.isSubAgent = currentDepth > 0;
+    (req as { subagentDepth?: number; isSubAgent?: boolean }).subagentDepth = currentDepth;
+    (req as { subagentDepth?: number; isSubAgent?: boolean }).isSubAgent = currentDepth > 0;
 
     // Only inject instructions if not already at max depth
     if (currentDepth >= subAgentConfig.maxDepth) {
@@ -76,7 +76,7 @@ export class SubAgentAgent implements IAgent {
 
     // Inject system prompt for sub-agent awareness
     if (Array.isArray(req.body?.system)) {
-      req.body.system.push({
+      (req.body.system as Array<{ type: string; text: string }>).push({
         type: 'text',
         text: this.buildSubAgentInstructions(subAgentConfig, currentDepth),
       });
@@ -86,19 +86,19 @@ export class SubAgentAgent implements IAgent {
   /**
    * Get sub-agent configuration from router config
    */
-  private getConfig(config: RouterConfig): SubAgentSystemConfig {
+  private getConfig(config: CCRConfig): SubAgentSystemConfig {
     return {
       ...DEFAULT_CONFIG,
       ...config?.SubAgent,
-    };
+    } as SubAgentSystemConfig;
   }
 
   /**
    * Extract current depth from request headers
    */
-  private getDepthFromRequest(req: { headers?: Record<string, string> }): number {
+  private getDepthFromRequest(req: AgentContext['req']): number {
     const depthHeader = req.headers?.[SUBAGENT_DEPTH_HEADER];
-    if (depthHeader) {
+    if (typeof depthHeader === 'string') {
       return parseInt(depthHeader, 10) || 0;
     }
     return 0;
@@ -173,8 +173,10 @@ Available types:
         },
         required: ['type', 'task'],
       },
-      handler: async (args: SpawnSubAgentInput, context: { config?: RouterConfig; req?: { subagentDepth?: number }; sessionId?: string; projectPath?: string; parentRequestId?: string }) => {
-        return this.handleSpawnSubAgent(args, context);
+      handler: async (args: Record<string, unknown>, context: AgentContext) => {
+        // Add type guard for args
+        const input = args as unknown as SpawnSubAgentInput;
+        return this.handleSpawnSubAgent(input, context);
       },
     });
   }
@@ -184,10 +186,10 @@ Available types:
    */
   private async handleSpawnSubAgent(
     input: SpawnSubAgentInput,
-    toolContext: { config?: RouterConfig; req?: { subagentDepth?: number }; sessionId?: string; projectPath?: string; parentRequestId?: string }
+    toolContext: AgentContext
   ): Promise<string> {
     const config = this.getConfig(toolContext.config);
-    const currentDepth = toolContext.req?.subagentDepth ?? 0;
+    const currentDepth = (toolContext.req as { subagentDepth?: number }).subagentDepth ?? 0;
 
     // Validate depth
     if (currentDepth >= config.maxDepth) {
@@ -207,10 +209,10 @@ Available types:
 
     // Build context for sub-agent
     const subAgentContext: SubAgentContext = {
-      sessionId: toolContext.sessionId || 'unknown',
-      projectPath: toolContext.projectPath,
+      sessionId: toolContext.req.sessionId || 'unknown',
+      projectPath: toolContext.req.projectPath,
       depth: currentDepth,
-      parentRequestId: toolContext.parentRequestId,
+      parentRequestId: (toolContext.req as { parentRequestId?: string }).parentRequestId,
       config: toolContext.config,
     };
 

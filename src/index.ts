@@ -24,7 +24,8 @@ import type { HookConfig } from "./hooks/types";
 import { initPluginManager } from "./plugins";
 import type { PluginConfig } from "./plugins/types";
 import { initSkillsManager } from "./skills";
-import type { CCRConfig, CCRRequest, CCRReply } from "./types/request";
+import type { CCRRequest, CCRReply } from "./types/request";
+import type { CCRConfig } from "./config/schema";
 
 const event = new EventEmitter()
 
@@ -162,8 +163,8 @@ async function initializeExtensions(server: { addHook: (name: string, handler: u
       dbPath: config.Memory.dbPath || MEMORY_DB_PATH,
       embedding: {
         provider: (config.Memory.embedding?.provider || 'openai') as 'openai' | 'ollama' | 'local',
-        apiKey: config.Memory.embedding?.apiKey || config.OPENAI_API_KEY,
-        baseUrl: config.Memory.embedding?.baseUrl || config.OPENAI_BASE_URL,
+        apiKey: config.Memory.embedding?.apiKey || (config as { OPENAI_API_KEY?: string }).OPENAI_API_KEY,
+        baseUrl: config.Memory.embedding?.baseUrl || (config as { OPENAI_BASE_URL?: string }).OPENAI_BASE_URL,
         model: config.Memory.embedding?.model,
       },
       autoInject: {
@@ -348,36 +349,44 @@ async function run(_options: RunOptions = {}) {
     jsonPath: CONFIG_FILE,
     initialConfig: {
       // ...config,
-      providers: config.Providers || config.providers,
+      providers: config.Providers || (config as { providers?: unknown[] }).providers || [],
       HOST: HOST,
       PORT: servicePort,
       LOG_FILE: join(LOGS_DIR, "claude-code-router.log"),
     },
-    logger: loggerConfig,
+    logger: loggerConfig as false | undefined,
   });
   console.log("[DEBUG RUN] Server created, setting up error handlers...");
 
   // Add global error handlers to prevent the service from crashing
   process.on("uncaughtException", (err) => {
-    server.logger.error({ err }, "Uncaught exception");
+    if (server.logger && typeof server.logger !== 'boolean' && server.logger.error) {
+      server.logger.error({ err }, "Uncaught exception");
+    } else {
+      console.error("Uncaught exception:", err);
+    }
   });
 
   process.on("unhandledRejection", (reason, promise) => {
-    server.logger.error({ promise, reason }, "Unhandled rejection");
+    if (server.logger && typeof server.logger !== 'boolean' && server.logger.error) {
+      server.logger.error({ promise, reason }, "Unhandled rejection");
+    } else {
+      console.error("Unhandled rejection:", reason);
+    }
   });
 
   console.log("[DEBUG RUN] Initializing extensions...");
   // Initialize extensions - this MUST happen before server.start()
   // because Fastify doesn't allow adding hooks after the server starts
   try {
-    await initializeExtensions(server, config);
+    await initializeExtensions(server as unknown as { addHook: (name: string, handler: unknown) => void }, config);
     console.log("[DEBUG RUN] Extensions initialized successfully");
   } catch (err: unknown) {
     console.error("[FATAL] Failed to initialize extensions:", err);
     console.error("[FATAL] Error details:", {
-      message: err?.message,
-      code: err?.code,
-      stack: err?.stack
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: string })?.code,
+      stack: err instanceof Error ? err.stack : undefined
     });
     cleanupPidFile();
     process.exit(1);
@@ -414,9 +423,9 @@ async function run(_options: RunOptions = {}) {
   } catch (err: unknown) {
     console.error("[FATAL] Failed to start server:", err);
     console.error("[FATAL] Error details:", {
-      message: err?.message,
-      code: err?.code,
-      stack: err?.stack
+      message: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: string })?.code,
+      stack: err instanceof Error ? err.stack : undefined
     });
     cleanupPidFile();
     process.exit(1);

@@ -1,4 +1,5 @@
 import { IAgent, ITool, AgentContext } from "./type";
+import type { CCRConfig } from "../config/schema";
 import * as LRU from "lru-cache";
 
 interface ImageSource {
@@ -72,13 +73,13 @@ export class ImageAgent implements IAgent {
     this.appendTools();
   }
 
-  shouldHandle(req: AgentContext['req'], config: Record<string, unknown>): boolean {
-    const router = config.Router as Record<string, unknown> | undefined;
+  shouldHandle(req: AgentContext['req'], config: CCRConfig): boolean {
+    const router = config.Router;
     if (!router?.image || req.body.model === router.image)
       return false;
     const lastMessage = req.body.messages[req.body.messages.length - 1] as Record<string, unknown>;
     if (
-      !config.forceUseImageAgent &&
+      !(config as { forceUseImageAgent?: boolean }).forceUseImageAgent &&
       lastMessage.role === "user" &&
       Array.isArray(lastMessage.content) &&
       (lastMessage.content as unknown[]).find(
@@ -90,7 +91,7 @@ export class ImageAgent implements IAgent {
         }
       )
     ) {
-      req.body.model = router.image;
+      req.body.model = router.image as string;
       const images: ContentItem[] = [];
       lastMessage.content
         .filter((item: ContentItem) => item.type === "tool_result")
@@ -225,16 +226,20 @@ export class ImageAgent implements IAgent {
         }
 
         // Send to analysis agent and get response
+        const headers: Record<string, string> = {
+          "content-type": "application/json",
+        };
+        if (context.config.APIKEY) {
+          headers["x-api-key"] = context.config.APIKEY;
+        }
+
         const agentResponse = await fetch(
           `http://127.0.0.1:${context.config.PORT || 3456}/v1/messages`,
           {
             method: "POST",
-            headers: {
-              "x-api-key": context.config.APIKEY,
-              "content-type": "application/json",
-            },
+            headers,
             body: JSON.stringify({
-              model: context.config.Router.image,
+              model: context.config.Router?.image,
               system: [
                 {
                   type: "text",
@@ -266,7 +271,7 @@ Always ensure that your response reflects a clear, accurate interpretation of th
     });
   }
 
-  reqHandler(req: AgentContext['req'], _config: Record<string, unknown>) {
+  reqHandler(req: AgentContext['req'], _config: CCRConfig): void {
     // Inject system prompt
     const system = req.body?.system as Array<Record<string, unknown>> | undefined;
     system?.push({
@@ -301,27 +306,30 @@ Your response should consistently follow this rule whenever image-related analys
     });
 
     let imgId = 1;
-    imageContents.forEach((item: { content?: unknown[] }) => {
-      if (!Array.isArray(item.content)) return;
-      item.content.forEach((msg: { type?: string; source?: unknown }) => {
-        if (msg.type === "image") {
-          imageCache.storeImage(`${req.id}_Image#${imgId}`, msg.source);
-          msg.type = "text";
-          delete msg.source;
-          msg.text = `[Image #${imgId}]This is an image, if you need to view or analyze it, you need to extract the imageId`;
+    imageContents.forEach((item: unknown) => {
+      const itemObj = item as { content?: unknown[] };
+      if (!Array.isArray(itemObj.content)) return;
+      itemObj.content.forEach((msg: unknown) => {
+        const msgObj = msg as { type?: string; source?: unknown; text?: string; content?: unknown };
+        if (msgObj.type === "image") {
+          imageCache.storeImage(`${(req as { id?: string }).id || 'unknown'}_Image#${imgId}`, msgObj.source as ImageSource);
+          msgObj.type = "text";
+          delete msgObj.source;
+          msgObj.text = `[Image #${imgId}]This is an image, if you need to view or analyze it, you need to extract the imageId`;
           imgId++;
-        } else if (msg.type === "text" && msg.text.includes("[Image #")) {
-          msg.text = msg.text.replace(/\[Image #\d+\]/g, "");
-        } else if (msg.type === "tool_result") {
+        } else if (msgObj.type === "text" && msgObj.text && msgObj.text.includes("[Image #")) {
+          msgObj.text = msgObj.text.replace(/\[Image #\d+\]/g, "");
+        } else if (msgObj.type === "tool_result") {
           if (
-            Array.isArray(msg.content) &&
-            (msg.content as ContentItem[]).some((ele: ContentItem) => ele.type === "image")
+            Array.isArray(msgObj.content) &&
+            (msgObj.content as ContentItem[]).some((ele: ContentItem) => ele.type === "image")
           ) {
+            const contentArray = msgObj.content as ContentItem[];
             imageCache.storeImage(
-              `${req.id}_Image#${imgId}`,
-              msg.content[0].source
+              `${(req as { id?: string }).id || 'unknown'}_Image#${imgId}`,
+              contentArray[0].source as ImageSource
             );
-            msg.content = `[Image #${imgId}]This is an image, if you need to view or analyze it, you need to extract the imageId`;
+            msgObj.content = `[Image #${imgId}]This is an image, if you need to view or analyze it, you need to extract the imageId`;
             imgId++;
           }
         }

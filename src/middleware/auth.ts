@@ -1,3 +1,5 @@
+import type { CCRConfig } from '../config/schema';
+
 // Generic request/reply types (no longer using Fastify)
 interface GenericRequest {
   url: string;
@@ -15,7 +17,7 @@ interface GenericReply {
 }
 
 export const apiKeyAuth =
-  (config: { APIKEY?: string }) =>
+  (config: CCRConfig) =>
   async (req: GenericRequest, reply: GenericReply, done: () => void) => {
     // Public endpoints that don't require authentication
     if (["/", "/health"].includes(req.url) || req.url.startsWith("/ui")) {

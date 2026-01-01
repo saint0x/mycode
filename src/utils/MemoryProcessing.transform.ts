@@ -59,6 +59,8 @@ export function createMemoryProcessingTransform(options: MemoryProcessingOptions
           event.data?.index === currentTextBlockIndex) {
 
         const text = event.data.delta.text;
+        if (!text) return event;
+
         accumulatedText += text;
         textBlockBuffer += text;
 
@@ -93,7 +95,7 @@ export function createMemoryProcessingTransform(options: MemoryProcessingOptions
         if (mightBeStartingTag(textBlockBuffer)) {
           // Could be starting a tag, but we don't have the full picture
           // For now, let it through - we'll handle complete tags
-          isInsidePotentialTag = true;
+          _isInsidePotentialTag = true;
         }
 
         return event;
@@ -105,7 +107,7 @@ export function createMemoryProcessingTransform(options: MemoryProcessingOptions
           event.data?.index === currentTextBlockIndex) {
         currentTextBlockIndex = -1;
         textBlockBuffer = '';
-        isInsidePotentialTag = false;
+        _isInsidePotentialTag = false;
         return event;
       }
 

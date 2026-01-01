@@ -9,9 +9,11 @@ import {
   SKILLS_DIR,
   COMMANDS_DIR,
   LOGS_DIR,
+  HOME_DIR,
 } from "../constants";
 import { cleanupLogFiles } from "./logCleanup";
 import { checkAndMigrate } from "./migration";
+import type { CCRConfig } from "../config/schema";
 
 type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
 
@@ -78,7 +80,7 @@ const _confirm = async (query: string): Promise<boolean> => {
   return answer.toLowerCase() !== "n";
 };
 
-export const readConfigFile = async () => {
+export const readConfigFile = async (): Promise<CCRConfig> => {
   console.log(`[DEBUG] readConfigFile() called, reading from: ${CONFIG_FILE}`);
   try {
     const config = await fs.readFile(CONFIG_FILE, "utf-8");
@@ -90,7 +92,7 @@ export const readConfigFile = async () => {
       console.log("[DEBUG] Config parsed successfully");
       // Interpolate environment variables in the parsed config
       console.log("[DEBUG] Interpolating environment variables...");
-      const interpolated = interpolateEnvVars(parsedConfig);
+      const interpolated = interpolateEnvVars(parsedConfig) as unknown as CCRConfig;
       console.log("[DEBUG] Environment variables interpolated");
       return interpolated;
     } catch (parseError) {
@@ -127,7 +129,7 @@ export const readConfigFile = async () => {
         console.log(
             "Please edit this file with your actual configuration."
         );
-        return config
+        return config as unknown as CCRConfig
       } catch (error: unknown) {
         console.error(
             "Failed to create default configuration:",
@@ -187,7 +189,7 @@ export const writeConfigFile = async (config: Record<string, unknown>) => {
   await fs.writeFile(CONFIG_FILE, configWithComment);
 };
 
-export const initConfig = async () => {
+export const initConfig = async (): Promise<CCRConfig> => {
   console.log("[DEBUG] initConfig() called");
   const config = await readConfigFile();
   console.log("[DEBUG] Config file loaded, assigning to process.env...");

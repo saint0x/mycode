@@ -108,8 +108,9 @@ export async function migrateFromLegacy(): Promise<MigrationResult> {
     console.log(`[Migration] Complete! Migrated ${result.migrated.length} items.`);
 
   } catch (error: unknown) {
-    result.errors.push(error instanceof Error ? error.message : String(error));
-    console.error(`[Migration] Failed:`, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    result.errors.push(errorMessage);
+    console.error(`[Migration] Failed:`, errorMessage);
   }
 
   return result;

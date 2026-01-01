@@ -1,0 +1,4295 @@
+[2026-01-01T19:00:45.548Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.548Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.549Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:00:45.550Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:45.551Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.503Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.504Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.504Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.504Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.504Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.504Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.504Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:46.505Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:00:55.184Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.184Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.184Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.185Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:55.186Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:00:56.292Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.293Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:00:56.294Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:56.295Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:56.296Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:00:57.845Z] [ToolTransform] Processing OpenAI tool call: {
+  "name": "TodoWrite",
+  "id": "tool_TodoWrite_3aXyMfQTDQRrV2cJpIIo",
+  "argumentsType": "string",
+  "argumentsPreview": "{\"todos\":[{\"priority\":\"medium\",\"status\":\"in_progress\",\"content\":\"Go deep into the project architecture\"}]}"
+}
+[2026-01-01T19:00:57.847Z] [ToolTransform] Successfully parsed and filtered tool arguments: {
+  "name": "TodoWrite",
+  "id": "tool_TodoWrite_3aXyMfQTDQRrV2cJpIIo",
+  "argumentKeys": [
+    "todos"
+  ],
+  "argumentValues": {
+    "todos": [
+      {
+        "status": "in_progress",
+        "content": "Go deep into the project architecture"
+      }
+    ]
+  }
+}
+[2026-01-01T19:00:57.876Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.876Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.877Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:57.878Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:00:58.906Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.906Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.907Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.908Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:00:58.909Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:01:01.509Z] [ToolTransform] Processing OpenAI tool call: {
+  "name": "TodoWrite",
+  "id": "tool_TodoWrite_vt3nFimcQyGd11MfZ0bt",
+  "argumentsType": "string",
+  "argumentsPreview": "{\"todos\":[{\"status\":\"in_progress\",\"priority\":\"medium\",\"content\":\"Explore the project architecture in depth\"}]}"
+}
+[2026-01-01T19:01:01.510Z] [ToolTransform] Successfully parsed and filtered tool arguments: {
+  "name": "TodoWrite",
+  "id": "tool_TodoWrite_vt3nFimcQyGd11MfZ0bt",
+  "argumentKeys": [
+    "todos"
+  ],
+  "argumentValues": {
+    "todos": [
+      {
+        "status": "in_progress",
+        "content": "Explore the project architecture in depth"
+      }
+    ]
+  }
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.541Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.542Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:01:01.543Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:01:03.091Z] [ToolTransform] Validating incoming tool at index 0: {
+  "name": "Task",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.091Z] [ToolTransform] Validating incoming tool at index 1: {
+  "name": "Bash",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 2: {
+  "name": "Glob",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 3: {
+  "name": "Grep",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 4: {
+  "name": "LS",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 5: {
+  "name": "exit_plan_mode",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 6: {
+  "name": "Read",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 7: {
+  "name": "Edit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 8: {
+  "name": "MultiEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 9: {
+  "name": "Write",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 10: {
+  "name": "NotebookRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 11: {
+  "name": "NotebookEdit",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 12: {
+  "name": "WebFetch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 13: {
+  "name": "TodoRead",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 14: {
+  "name": "TodoWrite",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Validating incoming tool at index 15: {
+  "name": "WebSearch",
+  "hasDescription": true,
+  "hasSchema": true
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Task",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.092Z] [ToolTransform] OpenAI schema for Task: {
+  "type": "object",
+  "required": [
+    "description",
+    "prompt"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "A short (3-5 word) description of the task"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The task for the agent to perform"
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Bash",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for Bash: {
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The command to execute"
+    },
+    "timeout": {
+      "type": "number",
+      "description": "Optional timeout in milliseconds (max 600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": " Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'"
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Glob",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for Glob: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The glob pattern to match files against"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter \"undefined\" or \"null\" - simply omit it for the default behavior. Must be a valid directory path if provided."
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Grep",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for Grep: {
+  "type": "object",
+  "required": [
+    "pattern"
+  ],
+  "properties": {
+    "pattern": {
+      "type": "string",
+      "description": "The regular expression pattern to search for in file contents"
+    },
+    "path": {
+      "type": "string",
+      "description": "The directory to search in. Defaults to the current working directory."
+    },
+    "include": {
+      "type": "string",
+      "description": "File pattern to include in the search (e.g. \"*.js\", \"*.{ts,tsx}\")"
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "LS",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for LS: {
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The absolute path to the directory to list (must be absolute, not relative)"
+    },
+    "ignore": {
+      "type": "array",
+      "description": "List of glob patterns to ignore",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "exit_plan_mode",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for exit_plan_mode: {
+  "type": "object",
+  "required": [
+    "plan"
+  ],
+  "properties": {
+    "plan": {
+      "type": "string",
+      "description": "The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise."
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Read",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for Read: {
+  "type": "object",
+  "required": [
+    "file_path"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to read"
+    },
+    "offset": {
+      "type": "number",
+      "description": "The line number to start reading from. Only provide if the file is too large to read at once"
+    },
+    "limit": {
+      "type": "number",
+      "description": "The number of lines to read. Only provide if the file is too large to read at once."
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Edit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for Edit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "old_string",
+    "new_string"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurences of old_string (default false)"
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "MultiEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for MultiEdit: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "edits"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to modify"
+    },
+    "edits": {
+      "type": "array",
+      "description": "Array of edit operations to perform sequentially on the file",
+      "items": {
+        "type": "object",
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "properties": {
+          "old_string": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "The text to replace it with"
+          },
+          "replace_all": {
+            "type": "boolean",
+            "description": "Replace all occurences of old_string (default false)."
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "Write",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.093Z] [ToolTransform] OpenAI schema for Write: {
+  "type": "object",
+  "required": [
+    "file_path",
+    "content"
+  ],
+  "properties": {
+    "file_path": {
+      "type": "string",
+      "description": "The absolute path to the file to write (must be absolute, not relative)"
+    },
+    "content": {
+      "type": "string",
+      "description": "The content to write to the file"
+    }
+  }
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] OpenAI schema for NotebookRead: {
+  "type": "object",
+  "required": [
+    "notebook_path"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to read (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of a specific cell to read. If not provided, all cells will be read."
+    }
+  }
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "NotebookEdit",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] OpenAI schema for NotebookEdit: {
+  "type": "object",
+  "required": [
+    "notebook_path",
+    "new_source"
+  ],
+  "properties": {
+    "notebook_path": {
+      "type": "string",
+      "description": "The absolute path to the Jupyter notebook file to edit (must be absolute, not relative)"
+    },
+    "cell_id": {
+      "type": "string",
+      "description": "The ID of the cell to edit. When inserting a new cell, the new cell will be inserted after the cell with this ID, or at the beginning if not specified."
+    },
+    "new_source": {
+      "type": "string",
+      "description": "The new source for the cell"
+    },
+    "cell_type": {
+      "type": "string",
+      "description": "The type of the cell (code or markdown). If not specified, it defaults to the current cell type. If using edit_mode=insert, this is required.",
+      "enum": [
+        "code",
+        "markdown"
+      ]
+    },
+    "edit_mode": {
+      "type": "string",
+      "description": "The type of edit to make (replace, insert, delete). Defaults to replace.",
+      "enum": [
+        "replace",
+        "insert",
+        "delete"
+      ]
+    }
+  }
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebFetch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] OpenAI schema for WebFetch: {
+  "type": "object",
+  "required": [
+    "url",
+    "prompt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "The URL to fetch content from"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "The prompt to run on the fetched content"
+    }
+  }
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoRead",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] OpenAI schema for TodoRead: {
+  "type": "object",
+  "description": "No input is required, leave this field blank. NOTE that we do not require a dummy object, placeholder string or a key like \"input\" or \"empty\". LEAVE IT BLANK.",
+  "properties": {}
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "TodoWrite",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] OpenAI schema for TodoWrite: {
+  "type": "object",
+  "required": [
+    "todos"
+  ],
+  "properties": {
+    "todos": {
+      "type": "array",
+      "description": "The updated todo list",
+      "items": {
+        "type": "object",
+        "required": [
+          "content",
+          "status",
+          "priority",
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Transforming tool to OpenAI format: {
+  "name": "WebSearch",
+  "originalSchemaFields": 5,
+  "convertedSchemaFields": 3,
+  "removedFields": "additionalProperties, $schema"
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] OpenAI schema for WebSearch: {
+  "type": "object",
+  "required": [
+    "query"
+  ],
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query to use"
+    },
+    "allowed_domains": {
+      "type": "array",
+      "description": "Only include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_domains": {
+      "type": "array",
+      "description": "Never include search results from these domains",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+[2026-01-01T19:01:03.094Z] [ToolTransform] Successfully transformed 16 tools to OpenAI format
+[2026-01-01T19:01:04.128Z] [ToolTransform] Processing OpenAI tool call: {
+  "name": "TodoWrite",
+  "id": "tool_TodoWrite_4Wy2SveNL1MqRQLaO3cf",
+  "argumentsType": "string",
+  "argumentsPreview": "{\"todos\":[{\"content\":\"Explore the project architecture in detail.\",\"status\":\"in_progress\",\"priority\":\"high\"}]}"
+}
+[2026-01-01T19:01:04.129Z] [ToolTransform] Successfully parsed and filtered tool arguments: {
+  "name": "TodoWrite",
+  "id": "tool_TodoWrite_4Wy2SveNL1MqRQLaO3cf",
+  "argumentKeys": [
+    "todos"
+  ],
+  "argumentValues": {
+    "todos": [
+      {
+        "content": "Explore the project architecture in detail.",
+        "status": "in_progress"
+      }
+    ]
+  }
+}

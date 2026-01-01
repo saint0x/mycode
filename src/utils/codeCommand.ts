@@ -116,8 +116,9 @@ export async function executeCodeCommand(args: string[] = []) {
   }
 
   // Set ANTHROPIC_SMALL_FAST_MODEL if it exists in config
-  if (config?.ANTHROPIC_SMALL_FAST_MODEL) {
-    env.ANTHROPIC_SMALL_FAST_MODEL = config.ANTHROPIC_SMALL_FAST_MODEL;
+  const customModel = (config as { ANTHROPIC_SMALL_FAST_MODEL?: string })?.ANTHROPIC_SMALL_FAST_MODEL;
+  if (customModel) {
+    env.ANTHROPIC_SMALL_FAST_MODEL = customModel;
   }
 
   // Increment reference count when command starts
