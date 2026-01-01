@@ -4,7 +4,7 @@
  */
 
 import type { IAgent, ITool } from '../agents/type';
-import { SUBAGENT_DEPTH_HEADER } from '../utils/router';
+import { SUBAGENT_DEPTH_HEADER } from '../utils/tokens';
 import { createSubAgentRunner } from './runner';
 import type {
   SubAgentContext,
@@ -280,4 +280,4 @@ export const subAgentAgent = new SubAgentAgent();
 export * from './types';
 export { SUBAGENT_CONFIGS, getSubAgentConfig } from './configs';
 export { createSubAgentRunner } from './runner';
-export { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER } from '../utils/router';
+export { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER } from '../utils/tokens';

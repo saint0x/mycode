@@ -1,5 +1,18 @@
 #!/usr/bin/env node
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+// Try to load .env from multiple locations
+// 1. Current working directory
+config({ path: '.env' });
+// 2. HOME_DIR (~/mycode/.env)
+const homeDirEnv = join(homedir(), 'mycode', '.env');
+if (existsSync(homeDirEnv)) {
+  config({ path: homeDirEnv, override: false }); // Don't override already loaded vars
+}
+
 import { run } from "./index";
 import { showStatus } from "./utils/status";
 import { executeCodeCommand } from "./utils/codeCommand";
@@ -19,6 +32,8 @@ import { join } from "path";
 import { migrateFromLegacy, detectLegacyConfig, detectNewConfig } from "./utils/migration";
 
 const command = process.argv[2];
+
+console.log(`[DEBUG CLI] Command received: ${command || '(none)'}`);
 
 const HELP_TEXT = `
 Usage: mycode [command]  (or: mc [command])
@@ -48,30 +63,52 @@ Example:
 `;
 
 async function waitForService(
-  timeout = 10000,
-  initialDelay = 1000
+  timeout = 15000,  // Increased to 15 seconds
+  initialDelay = 2000  // Increased to 2 seconds for initialization
 ): Promise<boolean> {
+  console.log(`[DEBUG] Waiting for service to start (timeout: ${timeout}ms, initial delay: ${initialDelay}ms)...`);
+
   // Wait for an initial period to let the service initialize
+  // This allows time for directory setup, config loading, memory service init, etc.
   await new Promise((resolve) => setTimeout(resolve, initialDelay));
 
   const startTime = Date.now();
+  let attempts = 0;
+
   while (Date.now() - startTime < timeout) {
-    const isRunning = await isServiceRunning()
+    attempts++;
+    console.log(`[DEBUG] Service check attempt ${attempts}...`);
+
+    const isRunning = await isServiceRunning();
+
     if (isRunning) {
+      const elapsed = Date.now() - startTime + initialDelay;
+      console.log(`[DEBUG] Service detected as running after ${attempts} attempts (${elapsed}ms total)`);
       // Wait for an additional short period to ensure service is fully ready
       await new Promise((resolve) => setTimeout(resolve, 500));
       return true;
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Poll every 500ms (more reasonable than 100ms)
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
+
+  const totalTime = Date.now() - startTime + initialDelay;
+  console.log(`[DEBUG] Service wait timeout after ${attempts} attempts (${totalTime}ms total)`);
   return false;
 }
 
 async function main() {
+  console.log("[DEBUG CLI] Entering main() function");
+  console.log("[DEBUG CLI] Checking if service is running...");
   const isRunning = await isServiceRunning()
+  console.log(`[DEBUG CLI] Service running: ${isRunning}`);
+
   switch (command) {
     case "start":
-      run();
+      console.log("[DEBUG CLI] Executing 'start' command...");
+      await run();
+      console.log("[DEBUG CLI] run() function completed");
       break;
     case "stop":
       try {
@@ -148,12 +185,15 @@ async function main() {
       await activateCommand();
       break;
     case "code":
+      console.log("[DEBUG CLI] Executing 'code' command...");
       if (!isRunning) {
         console.log("Service not running, starting service...");
         const cliPath = join(__dirname, "cli.js");
+        console.log(`[DEBUG CLI] Spawning start process: node ${cliPath} start`);
+        console.log(`[DEBUG CLI] Child process will run in background (logs: ~/mycode/logs/)`);
         const startProcess = spawn("node", [cliPath, "start"], {
           detached: true,
-          stdio: "ignore",
+          stdio: "ignore",  // Background process should not inherit parent's stdio
         });
 
         startProcess.on("error", (error) => {
@@ -162,18 +202,25 @@ async function main() {
         });
 
         startProcess.unref();
+        console.log("[DEBUG CLI] Waiting for service to start...");
 
         if (await waitForService()) {
+          console.log("[DEBUG CLI] Service started successfully!");
+          console.log("[DEBUG CLI] Executing code command...");
           // Join all code arguments into a single string to preserve spaces within quotes
           const codeArgs = process.argv.slice(3);
           executeCodeCommand(codeArgs);
         } else {
-          console.error(
-            "Service startup timeout, please manually run `mycode start` to start the service"
-          );
+          console.error("❌ Service startup timeout after 15 seconds");
+          console.error("Troubleshooting:");
+          console.error("  1. Check if port is already in use: lsof -i :3456");
+          console.error("  2. Check logs: tail -f ~/mycode/logs/ccr-*.log");
+          console.error("  3. Try manual start: mc start");
+          console.error("  4. Check config: cat ~/mycode/config.json");
           process.exit(1);
         }
       } else {
+        console.log("[DEBUG CLI] Service already running, executing code command...");
         // Join all code arguments into a single string to preserve spaces within quotes
         const codeArgs = process.argv.slice(3);
         executeCodeCommand(codeArgs);

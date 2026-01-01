@@ -1,7 +1,7 @@
 /**
  * Memory Database - Stoar-compatible SQLite storage
  *
- * Uses Bun's native SQLite driver (bun:sqlite) for best performance
+ * Uses better-sqlite3 for Node.js compatibility
  *
  * Uses stoar's schema:
  * - __meta: System metadata (key, value)
@@ -9,7 +9,8 @@
  * - {collection}: Dynamic JSON collections (key, data as JSON text)
  */
 
-import { Database, type Statement } from 'bun:sqlite';
+import Database from 'better-sqlite3';
+import type { Database as DatabaseType, Statement } from 'better-sqlite3';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { v4 as uuid } from 'uuid';

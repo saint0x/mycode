@@ -5,7 +5,7 @@
 
 import { v4 as uuid } from 'uuid';
 import { hasMemoryService, getMemoryService, type Memory } from '../memory';
-import { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER } from '../utils/router';
+import { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER } from '../utils/tokens';
 import {
   buildSubAgentSystemPrompt,
   getSubAgentConfig,

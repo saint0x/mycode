@@ -79,13 +79,20 @@ const confirm = async (query: string): Promise<boolean> => {
 };
 
 export const readConfigFile = async () => {
+  console.log(`[DEBUG] readConfigFile() called, reading from: ${CONFIG_FILE}`);
   try {
     const config = await fs.readFile(CONFIG_FILE, "utf-8");
+    console.log(`[DEBUG] Config file read successfully, length: ${config.length} bytes`);
     try {
+      console.log("[DEBUG] Parsing config with JSON5...");
       // Try to parse with JSON5 first (which also supports standard JSON)
       const parsedConfig = JSON5.parse(config);
+      console.log("[DEBUG] Config parsed successfully");
       // Interpolate environment variables in the parsed config
-      return interpolateEnvVars(parsedConfig);
+      console.log("[DEBUG] Interpolating environment variables...");
+      const interpolated = interpolateEnvVars(parsedConfig);
+      console.log("[DEBUG] Environment variables interpolated");
+      return interpolated;
     } catch (parseError) {
       console.error(`Failed to parse config file at ${CONFIG_FILE}`);
       console.error("Error details:", (parseError as Error).message);
@@ -94,6 +101,7 @@ export const readConfigFile = async () => {
     }
   } catch (readError: any) {
     if (readError.code === "ENOENT") {
+      console.log("[DEBUG] Config file not found, creating default config...");
       // Config file doesn't exist, prompt user for initial setup
       try {
         // Initialize directories
@@ -180,8 +188,11 @@ export const writeConfigFile = async (config: any) => {
 };
 
 export const initConfig = async () => {
+  console.log("[DEBUG] initConfig() called");
   const config = await readConfigFile();
+  console.log("[DEBUG] Config file loaded, assigning to process.env...");
   Object.assign(process.env, config);
+  console.log("[DEBUG] process.env updated with config");
   return config;
 };
 

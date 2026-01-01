@@ -134,6 +134,8 @@ export async function executeCodeCommand(args: string[] = []) {
 
   const argsObj = minimist(args)
   const argsArr = []
+
+  // Add named options
   for (const [argsObjKey, argsObjValue] of Object.entries(argsObj)) {
     if (argsObjKey !== '_' && argsObj[argsObjKey]) {
       const prefix = argsObjKey.length === 1 ? '-' : '--';
@@ -141,10 +143,17 @@ export async function executeCodeCommand(args: string[] = []) {
       if (argsObjValue === true) {
         argsArr.push(`${prefix}${argsObjKey}`);
       } else {
-        argsArr.push(`${prefix}${argsObjKey} ${JSON.stringify(argsObjValue)}`);
+        argsArr.push(`${prefix}${argsObjKey}`);
+        argsArr.push(String(argsObjValue));
       }
     }
   }
+
+  // Add positional arguments
+  if (argsObj._ && argsObj._.length > 0) {
+    argsArr.push(...argsObj._.map(String));
+  }
+
   const claudeProcess = spawn(
     claudePath,
     argsArr,
@@ -154,7 +163,7 @@ export async function executeCodeCommand(args: string[] = []) {
         ...env
       },
       stdio: stdioConfig,
-      shell: true,
+      shell: false,  // Don't use shell - pass args directly
     }
   );
 

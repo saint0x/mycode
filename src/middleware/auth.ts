@@ -17,7 +17,7 @@ export const apiKeyAuth =
       ];
       if (req.headers.origin && !allowedOrigins.includes(req.headers.origin)) {
         reply.status(403).send("CORS not allowed for this origin");
-        return;
+        return done();
       } else {
         reply.header('Access-Control-Allow-Origin', `http://127.0.0.1:${config.PORT || 3456}`);
         reply.header('Access-Control-Allow-Origin', `http://localhost:${config.PORT || 3456}`);
@@ -32,7 +32,7 @@ export const apiKeyAuth =
       : authHeaderValue || "";
     if (!authKey) {
       reply.status(401).send("APIKEY is missing");
-      return;
+      return done();
     }
     let token = "";
     if (authKey.startsWith("Bearer")) {
@@ -43,7 +43,7 @@ export const apiKeyAuth =
 
     if (token !== apiKey) {
       reply.status(401).send("Invalid API key");
-      return;
+      return done();
     }
 
     done();

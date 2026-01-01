@@ -38,8 +38,32 @@ export function getReferenceCount(): number {
     return parseInt(readFileSync(REFERENCE_COUNT_FILE, 'utf-8')) || 0;
 }
 
-export function isServiceRunning(): boolean {
+/**
+ * Get the configured service port, with fallback to default
+ */
+export async function getServicePort(): Promise<number> {
+    try {
+        const config = await readConfigFile();
+        return config.PORT || 3456;
+    } catch {
+        // If config file doesn't exist or fails to read, use default port
+        return 3456;
+    }
+}
+
+/**
+ * Check if service is running and ready to accept connections
+ * Uses three-step verification:
+ * 1. PID file exists
+ * 2. Process with that PID exists
+ * 3. Health endpoint responds (server is ready)
+ */
+export async function isServiceRunning(): Promise<boolean> {
+    console.log("[DEBUG] Checking if service is running...");
+
+    // Check 1: PID file exists
     if (!existsSync(PID_FILE)) {
+        console.log("[DEBUG] PID file not found");
         return false;
     }
 
@@ -48,45 +72,61 @@ export function isServiceRunning(): boolean {
         const pidStr = readFileSync(PID_FILE, 'utf-8');
         pid = parseInt(pidStr, 10);
         if (isNaN(pid)) {
-            // PID file content is invalid
+            console.log("[DEBUG] PID file content is invalid");
             cleanupPidFile();
             return false;
         }
+        console.log(`[DEBUG] Found PID: ${pid}`);
     } catch (e) {
-        // Failed to read file
+        console.log("[DEBUG] Failed to read PID file");
         return false;
     }
 
+    // Check 2: Process exists
     try {
         if (process.platform === 'win32') {
-            // --- Windows platform logic ---
-            // Use tasklist command with PID filter to find process
-            // stdio: 'pipe' suppresses command output from displaying in console
+            // Windows platform logic
             const command = `tasklist /FI "PID eq ${pid}"`;
             const output = execSync(command, { stdio: 'pipe' }).toString();
 
-            // If output contains the PID, the process exists
-            // tasklist returns "INFO: No tasks are running..." when process not found
-            // So a simple contains check is sufficient
-            if (output.includes(pid.toString())) {
-                return true;
-            } else {
-                // Theoretically if tasklist succeeds but doesn't find it, this won't be hit
-                // But as a safety measure, we still consider the process as not existing
+            if (!output.includes(pid.toString())) {
+                console.log("[DEBUG] Process not found (Windows)");
                 cleanupPidFile();
                 return false;
             }
-
         } else {
-            // --- Linux, macOS and other platforms logic ---
-            // Use signal 0 to check if process exists, this doesn't actually kill the process
+            // Linux, macOS and other platforms logic
+            // Use signal 0 to check if process exists (doesn't actually kill the process)
             process.kill(pid, 0);
-            return true; // If no exception is thrown, the process exists
         }
+        console.log("[DEBUG] Process exists");
     } catch (e) {
-        // Exception caught means process doesn't exist (whether from kill or execSync failure)
-        // Clean up the invalid PID file
+        console.log("[DEBUG] Process not found");
         cleanupPidFile();
+        return false;
+    }
+
+    // Check 3: Health endpoint responds (server is fully ready)
+    try {
+        const port = await getServicePort();
+        const healthUrl = `http://127.0.0.1:${port}/health`;
+        console.log(`[DEBUG] Checking health endpoint: ${healthUrl}`);
+
+        const response = await fetch(healthUrl, {
+            signal: AbortSignal.timeout(5000) // 5 second timeout - allows for server startup
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`[DEBUG] Health check passed: ${JSON.stringify(data)}`);
+            return true;
+        } else {
+            console.log(`[DEBUG] Health check failed: ${response.status}`);
+            return false;
+        }
+    } catch (err: any) {
+        console.log(`[DEBUG] Health check error: ${err.message}`);
+        // Process exists but server not ready yet - this is expected during startup
         return false;
     }
 }
