@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuid } from 'uuid';
-import { hasMemoryService, getMemoryService, type Memory } from '../memory';
+import { hasMemoryService, getMemoryService } from '../memory';
 import { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER } from '../utils/tokens';
 import {
   buildSubAgentSystemPrompt,
@@ -12,14 +12,14 @@ import {
   filterToolsForSubAgent,
 } from './configs';
 import type {
-  SubAgentType,
   SubAgentContext,
   SpawnSubAgentInput,
   SubAgentResult,
   SubAgentResultMetadata,
-  SubAgentStreamEvent,
   SubAgentProgressCallback,
+  SubAgentConfig,
 } from './types';
+import type { Tool } from '@anthropic-ai/sdk/resources/messages';
 import {
   SubAgentError,
   ErrorCode,
@@ -29,6 +29,25 @@ import {
 
 // Re-export header constants for convenience
 export { SUBAGENT_DEPTH_HEADER, SUBAGENT_ID_HEADER };
+
+interface SubAgentRequestBody {
+  model: string | undefined;
+  system: Array<{ type: string; text: string }>;
+  messages: Array<{ role: string; content: string }>;
+  max_tokens: number | undefined;
+  stream: boolean;
+  tools: Tool[];
+  agentType?: string;
+}
+
+interface ContentBlock {
+  type: string;
+  text?: string;
+}
+
+interface AnthropicResponse {
+  content?: ContentBlock[];
+}
 
 export class SubAgentRunner {
   private context: SubAgentContext;
@@ -58,7 +77,7 @@ export class SubAgentRunner {
 
     try {
       // Build the request
-      let requestBody: any;
+      let requestBody: SubAgentRequestBody;
       try {
         requestBody = await this.buildRequestBody(input);
       } catch (error) {
@@ -118,7 +137,7 @@ export class SubAgentRunner {
       return {
         success: true,
         output,
-        summary: this.generateSummary(output, input.task),
+        summary: this.generateSummary(output),
         metadata: this.buildMetadata(input, startTime, endTime),
       };
     } catch (error) {
@@ -177,7 +196,7 @@ export class SubAgentRunner {
 
     try {
       // Build the request
-      let requestBody: any;
+      let requestBody: SubAgentRequestBody;
       try {
         requestBody = await this.buildRequestBody(input);
       } catch (error) {
@@ -252,7 +271,7 @@ export class SubAgentRunner {
       const result: SubAgentResult = {
         success: true,
         output,
-        summary: this.generateSummary(output, input.task),
+        summary: this.generateSummary(output),
         metadata: this.buildMetadata(input, startTime, endTime),
       };
 
@@ -295,7 +314,7 @@ export class SubAgentRunner {
   /**
    * Build the request body for the internal API call
    */
-  private async buildRequestBody(input: SpawnSubAgentInput): Promise<any> {
+  private async buildRequestBody(input: SpawnSubAgentInput): Promise<SubAgentRequestBody> {
     const config = getSubAgentConfig(input.type);
 
     // Get memory context if enabled
@@ -381,7 +400,7 @@ export class SubAgentRunner {
   /**
    * Get filtered tools based on sub-agent configuration
    */
-  private getFilteredTools(config: any): any[] {
+  private getFilteredTools(config: SubAgentConfig): Tool[] {
     // Get base tools from config or default set
     const baseTools = this.context.config?.tools || [];
 
@@ -396,7 +415,7 @@ export class SubAgentRunner {
    * Make internal API call to the router
    */
   private async makeInternalApiCall(
-    requestBody: any,
+    requestBody: SubAgentRequestBody,
     stream: boolean
   ): Promise<Response> {
     const port = this.context.config?.PORT || 3456;
@@ -479,12 +498,12 @@ export class SubAgentRunner {
     }
 
     // Non-streaming JSON response
-    const data = await response.json();
+    const data = await response.json() as AnthropicResponse;
 
     if (data.content && Array.isArray(data.content)) {
       return data.content
-        .filter((item: any) => item.type === 'text')
-        .map((item: any) => item.text)
+        .filter((item): item is ContentBlock & { text: string } => item.type === 'text' && typeof item.text === 'string')
+        .map((item) => item.text)
         .join('\n');
     }
 
@@ -562,7 +581,7 @@ export class SubAgentRunner {
                   // Could track token usage here
                 }
               }
-            } catch (parseError) {
+            } catch {
               // Skip malformed JSON
             }
           }
@@ -578,7 +597,7 @@ export class SubAgentRunner {
   /**
    * Generate a brief summary of the output
    */
-  private generateSummary(output: string, task: string): string {
+  private generateSummary(output: string): string {
     // Simple summary: first 200 chars or first paragraph
     if (!output) {
       return 'No output generated';
@@ -614,7 +633,7 @@ export class SubAgentRunner {
   /**
    * Emit a stream event
    */
-  private emitEvent(callback: SubAgentProgressCallback, data: any): void {
+  private emitEvent(callback: SubAgentProgressCallback, data: Record<string, unknown>): void {
     callback({
       type: data.type,
       subAgentId: this.subAgentId,

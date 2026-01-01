@@ -13,8 +13,8 @@ const YELLOW = "\x1B[33m";
 const BOLDYELLOW = "\x1B[1m\x1B[33m";
 
 interface TransformerConfig {
-  use: Array<string | [string, any]>;
-  [key: string]: any;
+  use: Array<string | [string, Record<string, unknown>]>;
+  [key: string]: unknown;
 }
 
 interface Provider {
@@ -39,7 +39,7 @@ interface RouterConfig {
 interface Config {
   Providers: Provider[];
   Router: RouterConfig;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ModelResult {
@@ -90,7 +90,7 @@ function saveConfig(config: Config): void {
 }
 
 function getAllModels(config: Config) {
-  const models: any[] = [];
+  const models: Array<{ name: string; value: string; description: string }> = [];
   for (const provider of config.Providers) {
     for (const model of provider.models) {
       models.push({
@@ -186,7 +186,7 @@ async function configureTransformers(): Promise<TransformerConfig | undefined> {
     return undefined;
   }
   
-  const transformers: Array<string | [string, any]> = [];
+  const transformers: Array<string | [string, Record<string, unknown>]> = [];
   let addMore = true;
   
   while (addMore) {
@@ -455,8 +455,8 @@ export async function runModelSelector(): Promise<void> {
     }
     
     displayCurrentConfig(config);
-  } catch (error: any) {
-    console.error(`${YELLOW}Error:${RESET}`, error.message);
+  } catch (error: unknown) {
+    console.error(`${YELLOW}Error:${RESET}`, error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

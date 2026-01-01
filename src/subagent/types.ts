@@ -5,6 +5,20 @@
 
 import type { Memory } from '../memory/types';
 import type { ErrorCode } from '../errors';
+import type { Tool } from '@anthropic-ai/sdk/resources/messages';
+
+// Router configuration structure
+export interface RouterConfig {
+  PORT?: number;
+  APIKEY?: string;
+  tools?: Tool[];
+  Router?: {
+    default?: string;
+    [key: string]: unknown;
+  };
+  SubAgent?: SubAgentSystemConfig;
+  [key: string]: unknown;
+}
 
 // Sub-agent types
 export type SubAgentType = 'research' | 'code' | 'review' | 'custom';
@@ -25,7 +39,7 @@ export interface SubAgentContext {
   projectPath?: string;
   depth: number;          // Current nesting depth
   parentRequestId?: string;
-  config: any;            // Router config
+  config?: RouterConfig;  // Router config
   memories?: {
     global: Memory[];
     project: Memory[];
@@ -109,7 +123,7 @@ export interface SubAgentToolUseEvent {
   type: 'tool_use';
   toolName: string;
   toolId: string;
-  input: any;
+  input: Record<string, unknown>;
 }
 
 export interface SubAgentToolResultEvent {

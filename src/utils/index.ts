@@ -4,8 +4,6 @@ import JSON5 from "json5";
 import path from "node:path";
 import {
   CONFIG_FILE,
-  DEFAULT_CONFIG,
-  HOME_DIR,
   PLUGINS_DIR,
   HOOKS_DIR,
   SKILLS_DIR,
@@ -15,8 +13,10 @@ import {
 import { cleanupLogFiles } from "./logCleanup";
 import { checkAndMigrate } from "./migration";
 
+type ConfigValue = string | number | boolean | null | ConfigValue[] | { [key: string]: ConfigValue };
+
 // Function to interpolate environment variables in config values
-const interpolateEnvVars = (obj: any): any => {
+const interpolateEnvVars = (obj: ConfigValue): ConfigValue => {
   if (typeof obj === "string") {
     // Replace $VAR_NAME or ${VAR_NAME} with environment variable values
     return obj.replace(/\$\{([^}]+)\}|\$([A-Z_][A-Z0-9_]*)/g, (match, braced, unbraced) => {
@@ -26,7 +26,7 @@ const interpolateEnvVars = (obj: any): any => {
   } else if (Array.isArray(obj)) {
     return obj.map(interpolateEnvVars);
   } else if (obj !== null && typeof obj === "object") {
-    const result: any = {};
+    const result: { [key: string]: ConfigValue } = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = interpolateEnvVars(value);
     }
@@ -73,7 +73,7 @@ const question = (query: string): Promise<string> => {
   });
 };
 
-const confirm = async (query: string): Promise<boolean> => {
+const _confirm = async (query: string): Promise<boolean> => {
   const answer = await question(query);
   return answer.toLowerCase() !== "n";
 };
@@ -99,8 +99,8 @@ export const readConfigFile = async () => {
       console.error("Please check your config file syntax.");
       process.exit(1);
     }
-  } catch (readError: any) {
-    if (readError.code === "ENOENT") {
+  } catch (readError: unknown) {
+    if ((readError as NodeJS.ErrnoException).code === "ENOENT") {
       console.log("[DEBUG] Config file not found, creating default config...");
       // Config file doesn't exist, prompt user for initial setup
       try {
@@ -128,16 +128,16 @@ export const readConfigFile = async () => {
             "Please edit this file with your actual configuration."
         );
         return config
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(
             "Failed to create default configuration:",
-            error.message
+            error instanceof Error ? error.message : String(error)
         );
         process.exit(1);
       }
     } else {
       console.error(`Failed to read config file at ${CONFIG_FILE}`);
-      console.error("Error details:", readError.message);
+      console.error("Error details:", (readError as Error).message);
       process.exit(1);
     }
   }
@@ -181,8 +181,8 @@ export const backupConfigFile = async () => {
   return null;
 };
 
-export const writeConfigFile = async (config: any) => {
-  await ensureDir(HOME_DIR);
+export const writeConfigFile = async (config: Record<string, unknown>) => {
+  const _HOME_DIR = path.dirname(CONFIG_FILE);
   const configWithComment = `${JSON.stringify(config, null, 2)}`;
   await fs.writeFile(CONFIG_FILE, configWithComment);
 };

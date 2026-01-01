@@ -8,7 +8,6 @@
  * 3. Extracts memories at message completion
  */
 
-import type { MemoryCategory } from '../memory/types';
 import { parseRememberTags, stripRememberTags, type ParsedRememberTag } from './rememberTags';
 
 /**
@@ -26,8 +25,8 @@ function mightBeStartingTag(content: string): boolean {
 }
 
 interface MemoryProcessingOptions {
-  req: any;
-  config: any;
+  req: unknown;
+  config: unknown;
   onMemoryExtracted?: (memory: ParsedRememberTag) => void;
 }
 
@@ -37,7 +36,7 @@ interface MemoryProcessingOptions {
 export function createMemoryProcessingTransform(options: MemoryProcessingOptions) {
   let accumulatedText = '';
   let textBlockBuffer = '';
-  let isInsidePotentialTag = false;
+  let _isInsidePotentialTag = false;
   let currentTextBlockIndex = -1;
 
   return {
@@ -45,12 +44,12 @@ export function createMemoryProcessingTransform(options: MemoryProcessingOptions
      * Process a single SSE event
      * Returns the modified event, or null to filter it out
      */
-    processEvent(event: any): any {
+    processEvent(event: { event?: string; data?: { content_block?: { type?: string }; index?: number; delta?: { type?: string; text?: string } } }): { event?: string; data?: { content_block?: { type?: string }; index?: number; delta?: { type?: string; text?: string } } } | null {
       // Track text block starts
       if (event.event === 'content_block_start' && event.data?.content_block?.type === 'text') {
-        currentTextBlockIndex = event.data.index;
+        currentTextBlockIndex = event.data.index ?? -1;
         textBlockBuffer = '';
-        isInsidePotentialTag = false;
+        _isInsidePotentialTag = false;
         return event;
       }
 

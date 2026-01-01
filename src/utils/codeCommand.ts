@@ -126,7 +126,7 @@ export async function executeCodeCommand(args: string[] = []) {
   // Execute claude command
   const claudePath = config?.CLAUDE_PATH || process.env.CLAUDE_PATH || "claude";
 
-  const joinedArgs = args.length > 0 ? quote(args) : "";
+  const _joinedArgs = args.length > 0 ? quote(args) : "";
 
   const stdioConfig: StdioOptions = config.NON_INTERACTIVE_MODE
     ? ["pipe", "inherit", "inherit"] // Pipe stdin for non-interactive

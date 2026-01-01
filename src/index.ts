@@ -19,7 +19,7 @@ import { EventEmitter } from "node:events";
 import { initMemoryService, getMemoryService, hasMemoryService } from "./memory";
 import { initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
-import { initHooksManager, hasHooksManager } from "./hooks";
+import { initHooksManager } from "./hooks";
 import type { HookConfig } from "./hooks/types";
 import { initPluginManager } from "./plugins";
 import type { PluginConfig } from "./plugins/types";
@@ -40,7 +40,7 @@ interface Logger {
 }
 
 // Helper for safe logging
-function logError(logger: Logger, message: string, err?: unknown): void {
+function _logError(logger: Logger, message: string, err?: unknown): void {
   if (err instanceof Error) {
     logger.error({ err }, message);
   } else {
@@ -49,7 +49,7 @@ function logError(logger: Logger, message: string, err?: unknown): void {
 }
 
 // Extract and save memories from response content
-async function extractMemoriesFromResponse(
+async function _extractMemoriesFromResponse(
   content: string,
   req: CCRFastifyRequest,
   config: CCRConfig
@@ -87,7 +87,7 @@ async function extractMemoriesFromResponse(
   }
 }
 
-async function autoExtractMemories(content: string, req: CCRFastifyRequest, config: CCRConfig): Promise<void> {
+async function autoExtractMemories(content: string, req: CCRFastifyRequest, _config: CCRConfig): Promise<void> {
   if (!hasMemoryService()) return;
 
   const memoryService = getMemoryService();
@@ -120,7 +120,7 @@ async function autoExtractMemories(content: string, req: CCRFastifyRequest, conf
               source: 'auto-extracted',
             },
           });
-        } catch (err) {
+        } catch {
           // Silently ignore extraction errors
         }
       }
@@ -152,7 +152,7 @@ interface RunOptions {
   port?: number;
 }
 
-async function initializeExtensions(server: any, config: CCRConfig) {
+async function initializeExtensions(server: { addHook: (name: string, handler: unknown) => void }, config: CCRConfig) {
   // ═══════════════════════════════════════════════════════════════════
   // MEMORY SERVICE INITIALIZATION
   // ═══════════════════════════════════════════════════════════════════
@@ -272,7 +272,7 @@ async function initializeExtensions(server: any, config: CCRConfig) {
   // Legacy onSend hooks removed - newserver.ts handles all routing now
 }
 
-async function run(options: RunOptions = {}) {
+async function run(_options: RunOptions = {}) {
   // Check if service is already running
   const isRunning = await isServiceRunning()
   if (isRunning) {
@@ -372,7 +372,7 @@ async function run(options: RunOptions = {}) {
   try {
     await initializeExtensions(server, config);
     console.log("[DEBUG RUN] Extensions initialized successfully");
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[FATAL] Failed to initialize extensions:", err);
     console.error("[FATAL] Error details:", {
       message: err?.message,
@@ -411,7 +411,7 @@ async function run(options: RunOptions = {}) {
     // Save PID only after server is fully ready and health endpoint is available
     savePid(process.pid);
     console.log(`[DEBUG RUN] PID ${process.pid} saved after server ready`);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[FATAL] Failed to start server:", err);
     console.error("[FATAL] Error details:", {
       message: err?.message,

@@ -15,6 +15,20 @@ import { serve } from '@hono/node-server';
 import type { ProviderConfig } from '../config/schema';
 
 /**
+ * Logger interface (compatible with various logging libraries)
+ */
+export interface Logger {
+  info?: (...args: unknown[]) => void;
+  error?: (...args: unknown[]) => void;
+  warn?: (...args: unknown[]) => void;
+  debug?: (...args: unknown[]) => void;
+  trace?: (...args: unknown[]) => void;
+  fatal?: (...args: unknown[]) => void;
+  log?: (...args: unknown[]) => void;
+  child?: () => Logger;
+}
+
+/**
  * Server configuration interface
  */
 export interface ServerConfig {
@@ -25,7 +39,7 @@ export interface ServerConfig {
     PORT: number;
     LOG_FILE: string;
   };
-  logger?: any | false;
+  logger?: Logger | false;
 }
 
 /**
@@ -35,11 +49,11 @@ export interface HookRequest {
   url: string;
   method: string;
   headers: Record<string, string>;
-  body?: any;
+  body?: unknown;
   params?: Record<string, string>;
   query?: Record<string, string>;
-  log: any;
-  [key: string]: any;  // Allow additional properties
+  log: Logger;
+  [key: string]: unknown;  // Allow additional properties
 }
 
 /**
@@ -48,27 +62,28 @@ export interface HookRequest {
 export interface HookReply {
   code: (statusCode: number) => HookReply;
   status: (statusCode: number) => HookReply;
-  send: (payload: any) => HookReply;
+  send: (payload: unknown) => HookReply;
   header: (key: string, value: string) => HookReply;
   getHeaders: () => Record<string, string>;
   statusCode: number;
-  [key: string]: any;  // Allow additional properties
+  [key: string]: unknown;  // Allow additional properties
 }
 
 /**
  * Hook handler types
  */
 type PreHandlerHook = (req: HookRequest, reply: HookReply, done: (err?: Error) => void) => Promise<void> | void;
-type OnSendHook = (req: HookRequest, reply: HookReply, payload: any, done: (err: Error | null, payload: any) => void) => void;
-type OnSendAsyncHook = (req: HookRequest, reply: HookReply, payload: any) => Promise<any>;
+type OnSendHook = (req: HookRequest, reply: HookReply, payload: unknown, done: (err: Error | null, payload: unknown) => void) => void;
+type OnSendAsyncHook = (req: HookRequest, reply: HookReply, payload: unknown) => Promise<unknown>;
 type OnErrorHook = (request: HookRequest, reply: HookReply, error: Error) => Promise<void>;
+type AnyHook = PreHandlerHook | OnSendHook | OnSendAsyncHook | OnErrorHook;
 
 /**
  * Main Server class
  */
 export class Server {
   public app: Hono;
-  public logger: any;
+  public logger: Logger;
   public config: ServerConfig;
 
   private hooks: {
@@ -119,9 +134,9 @@ export class Server {
   addHook(name: 'preHandler', handler: PreHandlerHook): void;
   addHook(name: 'onSend', handler: OnSendHook | OnSendAsyncHook): void;
   addHook(name: 'onError', handler: OnErrorHook): void;
-  addHook(name: string, handler: any): void {
+  addHook(name: string, handler: AnyHook): void {
     if (name in this.hooks) {
-      this.hooks[name as keyof typeof this.hooks].push(handler);
+      this.hooks[name as keyof typeof this.hooks].push(handler as never);
     } else {
       throw new Error(`Unknown hook type: ${name}`);
     }
@@ -273,16 +288,16 @@ export class Server {
         statusCode = code;
         return reply;
       },
-      send: (payload: any) => {
-        c.status(statusCode as any);
+      send: (payload: unknown) => {
+        c.status(statusCode);
         Object.entries(responseHeaders).forEach(([key, value]) => {
           c.header(key, value);
         });
 
-        if (typeof payload === 'object') {
+        if (typeof payload === 'object' && payload !== null) {
           c.json(payload);
         } else {
-          c.text(payload);
+          c.text(String(payload));
         }
         return reply;
       },

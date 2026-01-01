@@ -1,4 +1,4 @@
-export class SSESerializerTransform extends TransformStream<any, string> {
+export class SSESerializerTransform extends TransformStream<Record<string, unknown>, string> {
     constructor() {
         super({
             transform: (event, controller) => {
@@ -14,7 +14,7 @@ export class SSESerializerTransform extends TransformStream<any, string> {
                     output += `retry: ${event.retry}\n`;
                 }
                 if (event.data) {
-                    if (event.data.type === 'done') {
+                    if (typeof event.data === 'object' && event.data !== null && 'type' in event.data && event.data.type === 'done') {
                         output += 'data: [DONE]\n';
                     } else {
                         output += `data: ${JSON.stringify(event.data)}\n`;

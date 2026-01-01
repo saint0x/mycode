@@ -4,7 +4,7 @@
  * @param stream - The source readable stream
  * @param processor - Function to process each chunk
  */
-export const rewriteStream = (stream: ReadableStream, processor: (data: any, controller: ReadableStreamController<any>) => Promise<any>): ReadableStream => {
+export const rewriteStream = (stream: ReadableStream, processor: (data: unknown, controller: ReadableStreamController<unknown>) => Promise<unknown>): ReadableStream => {
   const reader = stream.getReader()
 
   return new ReadableStream({

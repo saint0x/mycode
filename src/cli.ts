@@ -116,14 +116,14 @@ async function main() {
         if (existsSync(REFERENCE_COUNT_FILE)) {
           try {
             fs.unlinkSync(REFERENCE_COUNT_FILE);
-          } catch (_e) {
+          } catch {
             // Ignore cleanup errors
           }
         }
         console.log(
           "claude code router service has been successfully stopped."
         );
-      } catch (_e) {
+      } catch {
         console.log(
           "Failed to stop the service. It may have already been stopped."
         );
@@ -356,12 +356,12 @@ async function main() {
         if (existsSync(REFERENCE_COUNT_FILE)) {
           try {
             fs.unlinkSync(REFERENCE_COUNT_FILE);
-          } catch (_e) {
+          } catch {
             // Ignore cleanup errors
           }
         }
         console.log("claude code router service has been stopped.");
-      } catch (_e) {
+      } catch {
         console.log("Service was not running or failed to stop.");
         cleanupPidFile();
       }

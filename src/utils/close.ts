@@ -21,7 +21,7 @@ export async function closeService() {
         process.kill(pid);
         cleanupPidFile();
         console.log("claude code router service has been successfully stopped.");
-    } catch (e) {
+    } catch {
         console.log("Failed to stop the service. It may have already been stopped.");
         cleanupPidFile();
     }

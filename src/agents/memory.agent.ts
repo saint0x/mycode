@@ -176,7 +176,7 @@ const forgetTool: ITool = {
     },
     required: ['memoryId', 'scope'],
   },
-  handler: async (args: { memoryId: string; scope: 'global' | 'project' }, _ctx: any) => {
+  handler: async (args: { memoryId: string; scope: 'global' | 'project' }, _ctx: unknown) => {
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({

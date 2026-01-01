@@ -8,7 +8,7 @@ export async function isProcessRunning(pid: number): Promise<boolean> {
     try {
         const processes = await find('pid', pid);
         return processes.length > 0;
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -77,7 +77,7 @@ export async function isServiceRunning(): Promise<boolean> {
             return false;
         }
         console.log(`[DEBUG] Found PID: ${pid}`);
-    } catch (e) {
+    } catch {
         console.log("[DEBUG] Failed to read PID file");
         return false;
     }
@@ -100,7 +100,7 @@ export async function isServiceRunning(): Promise<boolean> {
             process.kill(pid, 0);
         }
         console.log("[DEBUG] Process exists");
-    } catch (e) {
+    } catch {
         console.log("[DEBUG] Process not found");
         cleanupPidFile();
         return false;
@@ -124,8 +124,8 @@ export async function isServiceRunning(): Promise<boolean> {
             console.log(`[DEBUG] Health check failed: ${response.status}`);
             return false;
         }
-    } catch (err: any) {
-        console.log(`[DEBUG] Health check error: ${err.message}`);
+    } catch (err: unknown) {
+        console.log(`[DEBUG] Health check error: ${err instanceof Error ? err.message : String(err)}`);
         // Process exists but server not ready yet - this is expected during startup
         return false;
     }
@@ -140,7 +140,7 @@ export function cleanupPidFile() {
         try {
             const fs = require('fs');
             fs.unlinkSync(PID_FILE);
-        } catch (e) {
+        } catch {
             // Ignore cleanup errors
         }
     }
@@ -154,7 +154,7 @@ export function getServicePid(): number | null {
     try {
         const pid = parseInt(readFileSync(PID_FILE, 'utf-8'));
         return isNaN(pid) ? null : pid;
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -163,7 +163,7 @@ export async function getServiceInfo() {
     const pid = getServicePid();
     const running = await isServiceRunning();
     const config = await readConfigFile();
-    const port = config.PORT || 3456;
+    const port = (config && typeof config === 'object' && 'PORT' in config && typeof config.PORT === 'number') ? config.PORT : 3456;
 
     return {
         running,

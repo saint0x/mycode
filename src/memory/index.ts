@@ -59,7 +59,7 @@ export class MemoryService {
       projectPath?: string;
       category: MemoryCategory;
       importance?: number;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<Memory> {
     // Validate input
@@ -238,7 +238,7 @@ export class MemoryService {
     embeddings: { id: string; embedding: Float32Array }[],
     limit: number
   ): MemorySearchResult[] {
-    const embeddingMap = new Map(embeddings.map(e => [e.id, e.embedding]));
+    const _embeddingMap = new Map(embeddings.map(e => [e.id, e.embedding]));
     const memoryMap = new Map(memories.map(m => [m.id, m]));
     const scores = new Map<string, { vector: number; keyword: number }>();
 
@@ -288,7 +288,7 @@ export class MemoryService {
 
   async getContextForRequest(
     request: {
-      messages: any[];
+      messages: Array<{ role?: string; content?: unknown }>;
       projectPath?: string;
     },
     options?: {
@@ -309,8 +309,8 @@ export class MemoryService {
     try {
       const recentMessages = request.messages?.slice(-5) ?? [];
       queryContext = recentMessages
-        .filter((m: any) => m?.role === 'user')
-        .map((m: any) => (typeof m?.content === 'string' ? m.content : ''))
+        .filter((m) => m?.role === 'user')
+        .map((m) => (typeof m?.content === 'string' ? m.content : ''))
         .join(' ')
         .trim();
     } catch (error) {
@@ -377,14 +377,14 @@ export class MemoryService {
     for (const m of globalMemories) {
       try {
         this.db.touchMemory(m.id, 'global');
-      } catch (error) {
+      } catch {
         // Silent failure for touch - non-critical operation
       }
     }
     for (const m of projectMemories) {
       try {
         this.db.touchMemory(m.id, 'project');
-      } catch (error) {
+      } catch {
         // Silent failure for touch - non-critical operation
       }
     }

@@ -26,6 +26,65 @@ interface TokenCountBody {
   system: string;
 }
 
+interface AnthropicTool {
+  name: string;
+  description?: string;
+  input_schema?: Record<string, unknown>;
+}
+
+interface AnthropicRequestBody {
+  model: string;
+  messages: unknown[];
+  system?: string;
+  tools?: AnthropicTool[];
+  tool_choice?: {
+    type: 'auto' | 'any' | 'tool';
+    name?: string;
+  } | string;
+  max_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  stop_sequences?: string[];
+  stream?: boolean;
+  metadata?: Record<string, unknown>;
+  headers?: Record<string, string>;
+}
+
+interface OpenAIRequestBody {
+  model: string;
+  messages: unknown[];
+  tools?: unknown[];
+  tool_choice?: string | { type: string; function: { name: string } };
+  max_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  stop?: string[];
+  stream?: boolean;
+}
+
+interface OpenAIResponse {
+  id: string;
+  model: string;
+  choices?: Array<{
+    message?: {
+      content?: string;
+      tool_calls?: Array<{
+        id?: string;
+        type?: string;
+        function?: {
+          name: string;
+          arguments?: string | Record<string, unknown>;
+        };
+      }>;
+    };
+    finish_reason?: string;
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+}
+
 /**
  * Detect provider type from API base URL
  */
@@ -42,8 +101,8 @@ function detectProviderType(apiBaseUrl: string): 'anthropic' | 'openrouter' | 'o
 /**
  * Transform Anthropic request to OpenAI format
  */
-function anthropicToOpenAI(body: any): any {
-  const openAIBody: any = {
+function anthropicToOpenAI(body: AnthropicRequestBody): OpenAIRequestBody {
+  const openAIBody: OpenAIRequestBody = {
     model: body.model,
     messages: [],
     stream: body.stream ?? false,
@@ -64,7 +123,7 @@ function anthropicToOpenAI(body: any): any {
 
   // Transform tools from Anthropic to OpenAI format
   if (body.tools && Array.isArray(body.tools)) {
-    openAIBody.tools = body.tools.map((tool: any) => ({
+    openAIBody.tools = body.tools.map((tool) => ({
       type: "function",
       function: {
         name: tool.name,
@@ -155,7 +214,7 @@ function openAIChunkToAnthropic(chunk: string): string {
     }
 
     return output;
-  } catch (e) {
+  } catch {
     return '';
   }
 }
@@ -163,12 +222,12 @@ function openAIChunkToAnthropic(chunk: string): string {
 /**
  * Transform OpenAI response to Anthropic format
  */
-function openAIToAnthropic(response: any): any {
+function openAIToAnthropic(response: OpenAIResponse): Record<string, unknown> {
   const choice = response.choices?.[0];
   if (!choice) return response;
 
   // Build content array with text and tool uses
-  const content: any[] = [];
+  const content: Array<Record<string, unknown>> = [];
 
   // Add text content if present
   if (choice.message?.content) {
@@ -215,10 +274,6 @@ function openAIToAnthropic(response: any): any {
   };
 }
 
-interface LogQueryParams {
-  file?: string;
-}
-
 /**
  * Create and configure the server with all routes
  */
@@ -246,7 +301,7 @@ export const createServer = (config: ServerConfig): Server => {
 
         // Check for webSearch - if tools include web search capabilities
         if (fullConfig.Router.webSearch && body.tools) {
-          const hasWebSearchTool = body.tools.some((tool: any) =>
+          const hasWebSearchTool = body.tools.some((tool) =>
             tool.name?.toLowerCase().includes('search') ||
             tool.name?.toLowerCase().includes('web') ||
             tool.description?.toLowerCase().includes('search the web')
@@ -272,7 +327,7 @@ export const createServer = (config: ServerConfig): Server => {
             if (tokenCount > fullConfig.Router.longContextThreshold) {
               routeType = 'longContext';
             }
-          } catch (e) {
+          } catch {
             // If token calculation fails, continue with current route
           }
         }
@@ -408,7 +463,7 @@ export const createServer = (config: ServerConfig): Server => {
 
       // Return with proper status code
       const statusCode = response.ok ? 200 : response.status;
-      return c.json(transformedData, statusCode as any);
+      return c.json(transformedData, statusCode);
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Internal server error";
@@ -511,7 +566,7 @@ export const createServer = (config: ServerConfig): Server => {
       c.header("Cache-Control", "public, max-age=3600");
 
       return c.body(content);
-    } catch (error) {
+    } catch {
       return c.text("Error serving file", 500);
     }
   });
@@ -528,7 +583,7 @@ export const createServer = (config: ServerConfig): Server => {
         latestVersion: hasUpdate ? latestVersion : undefined,
         changelog: hasUpdate ? changelog : undefined
       });
-    } catch (error) {
+    } catch {
       return c.json({ error: "Failed to check for updates" }, 500);
     }
   });
@@ -537,7 +592,7 @@ export const createServer = (config: ServerConfig): Server => {
     try {
       const result = await performUpdate();
       return c.json(result);
-    } catch (error) {
+    } catch {
       return c.json({ error: "Failed to perform update" }, 500);
     }
   });
@@ -571,7 +626,7 @@ export const createServer = (config: ServerConfig): Server => {
       }
 
       return c.json(logFiles);
-    } catch (error) {
+    } catch {
       return c.json({ error: "Failed to get log files" }, 500);
     }
   });
@@ -602,7 +657,7 @@ export const createServer = (config: ServerConfig): Server => {
       const logLines = logContent.split('\n').filter(line => line.trim());
 
       return c.json(logLines);
-    } catch (error) {
+    } catch {
       return c.json({ error: "Failed to get logs" }, 500);
     }
   });
@@ -630,7 +685,7 @@ export const createServer = (config: ServerConfig): Server => {
       }
 
       return c.json({ success: true, message: "Logs cleared successfully" });
-    } catch (error) {
+    } catch {
       return c.json({ error: "Failed to clear logs" }, 500);
     }
   });

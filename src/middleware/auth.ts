@@ -15,7 +15,7 @@ interface GenericReply {
 }
 
 export const apiKeyAuth =
-  (config: any) =>
+  (config: { APIKEY?: string }) =>
   async (req: GenericRequest, reply: GenericReply, done: () => void) => {
     // Public endpoints that don't require authentication
     if (["/", "/health"].includes(req.url) || req.url.startsWith("/ui")) {

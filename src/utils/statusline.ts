@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { execSync } from "child_process";
 import path from "node:path";
-import { CONFIG_FILE, HOME_DIR } from "../constants";
+import { CONFIG_FILE } from "../constants";
 import JSON5 from "json5";
 
 export interface StatusLineModuleConfig {
@@ -88,7 +88,7 @@ const COLORS: Record<string, string> = {
 
 // Use TrueColor (24-bit color) to support hex colors
 const TRUE_COLOR_PREFIX = "\x1b[38;2;";
-const TRUE_COLOR_BG_PREFIX = "\x1b[48;2;";
+const _TRUE_COLOR_BG_PREFIX = "\x1b[48;2;";
 
 // Convert hex color to RGB format
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
@@ -179,8 +179,8 @@ async function executeScript(scriptPath: string, variables: Record<string, strin
 
     // Return empty string by default
     return "";
-  } catch (error) {
-    console.error(`Error executing script ${scriptPath}:`, error);
+  } catch {
+    console.error(`Error executing script ${scriptPath}`);
     return "";
   }
 }
@@ -334,7 +334,7 @@ async function getProjectThemeConfig(): Promise<{ theme: StatusLineThemeConfig |
         return { theme: config.StatusLine[currentStyle], style: currentStyle };
       }
     }
-  } catch (error) {
+  } catch {
     // If reading fails, return null
     // console.error("Failed to read theme config:", error);
   }
@@ -397,7 +397,7 @@ function canDisplayNerdFonts(): boolean {
 
 // Check if specific Unicode character can be displayed correctly
 // This is a simple heuristic check
-function canDisplayUnicodeCharacter(char: string): boolean {
+function _canDisplayUnicodeCharacter(_char: string): boolean {
   // For Nerd Fonts icons, we assume UTF-8 supporting terminals can display them
   // But accurate detection is difficult, so we rely on env vars and terminal type detection
   try {
@@ -415,7 +415,7 @@ function canDisplayUnicodeCharacter(char: string): boolean {
         return true;
       }
     }
-  } catch (e) {
+  } catch {
     // If check fails, default to true
     return true;
   }
@@ -451,7 +451,7 @@ export async function parseStatusLineData(input: StatusLineInput): Promise<strin
       })
         .toString()
         .trim();
-    } catch (error) {
+    } catch {
       // If not a Git repo or retrieval fails, ignore error
     }
 
@@ -476,7 +476,7 @@ export async function parseStatusLineData(input: StatusLineInput): Promise<strin
           }
           break;
         }
-      } catch (parseError) {
+      } catch {
         // Ignore parse errors, continue searching
         continue;
       }
@@ -507,7 +507,7 @@ export async function parseStatusLineData(input: StatusLineInput): Promise<strin
             model = defaultModel.trim();
           }
         }
-      } catch (configError) {
+      } catch {
         // If config file read fails, ignore error
       }
     }
@@ -542,14 +542,14 @@ export async function parseStatusLineData(input: StatusLineInput): Promise<strin
     } else {
       return await renderDefaultStyle(theme, variables);
     }
-  } catch (error) {
+  } catch {
     // Return empty string on error
     return "";
   }
 }
 
 // Read theme configuration from user's home directory (specified style)
-async function getProjectThemeConfigForStyle(style: string): Promise<StatusLineThemeConfig | null> {
+async function _getProjectThemeConfigForStyle(style: string): Promise<StatusLineThemeConfig | null> {
   try {
     // Only use fixed config file in home directory
     const configPath = CONFIG_FILE;
@@ -568,7 +568,7 @@ async function getProjectThemeConfigForStyle(style: string): Promise<StatusLineT
     if (config.StatusLine && config.StatusLine[style] && config.StatusLine[style].modules) {
       return config.StatusLine[style];
     }
-  } catch (error) {
+  } catch {
     // If reading fails, return null
     // console.error("Failed to read theme config:", error);
   }

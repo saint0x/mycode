@@ -65,7 +65,7 @@ export class SSEParserTransform extends TransformStream<string, SSEEvent> {
             } else {
                 try {
                     this.currentEvent.data = JSON.parse(data);
-                } catch (e) {
+                } catch {
                     this.currentEvent.data = { raw: data, error: 'JSON parse failed' };
                 }
             }

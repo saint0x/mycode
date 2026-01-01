@@ -301,9 +301,9 @@ Your response should consistently follow this rule whenever image-related analys
     });
 
     let imgId = 1;
-    imageContents.forEach((item: any) => {
+    imageContents.forEach((item: { content?: unknown[] }) => {
       if (!Array.isArray(item.content)) return;
-      item.content.forEach((msg: any) => {
+      item.content.forEach((msg: { type?: string; source?: unknown }) => {
         if (msg.type === "image") {
           imageCache.storeImage(`${req.id}_Image#${imgId}`, msg.source);
           msg.type = "text";

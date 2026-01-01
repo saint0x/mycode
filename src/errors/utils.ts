@@ -116,7 +116,7 @@ export function wrapEmbeddingError(
   error: unknown,
   provider: string,
   operation: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ): EmbeddingError {
   const message = error instanceof Error ? error.message : String(error);
   const cause = error instanceof Error ? error : undefined;
@@ -482,10 +482,10 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export function logError(
   error: CCRError,
   logger?: {
-    debug?: (...args: any[]) => void;
-    info?: (...args: any[]) => void;
-    warn?: (...args: any[]) => void;
-    error?: (...args: any[]) => void;
+    debug?: (...args: unknown[]) => void;
+    info?: (...args: unknown[]) => void;
+    warn?: (...args: unknown[]) => void;
+    error?: (...args: unknown[]) => void;
   }
 ): void {
   const logFn = logger ?? console;

@@ -4,6 +4,7 @@
  */
 
 import type { SubAgentConfig, SubAgentType } from './types';
+import type { Tool } from '@anthropic-ai/sdk/resources/messages';
 
 // Research agent: focused on information gathering and analysis
 const RESEARCH_CONFIG: SubAgentConfig = {
@@ -207,9 +208,9 @@ You are running as a sub-agent within a larger system.
  * Filter tools based on sub-agent configuration
  */
 export function filterToolsForSubAgent(
-  allTools: any[],
+  allTools: Tool[],
   config: SubAgentConfig
-): any[] {
+): Tool[] {
   // If no restrictions, return all tools
   if (!config.allowedTools && !config.disallowedTools) {
     return allTools;

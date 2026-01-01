@@ -19,7 +19,6 @@ import {
   DatabaseError,
   ErrorCode,
   wrapDatabaseError,
-  type Result,
 } from '../errors';
 
 // Stoar-compatible schema initialization
