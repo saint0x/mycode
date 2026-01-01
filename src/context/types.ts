@@ -19,7 +19,7 @@ export interface ContextSection {
   priority: ContextPriority;
   tokenCount: number;
   category: ContextCategory;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface RequestAnalysis {

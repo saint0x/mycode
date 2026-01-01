@@ -14,8 +14,8 @@ import { buildMemorySections, buildEmphasisSections, buildInstructionSections, b
 import {
   ContextBuilderError,
   ErrorCode,
-  type CCRError,
 } from '../errors';
+import type { MessageParam, Tool, TextBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
 const DEFAULT_CONFIG: ContextBuilderConfig = {
   maxTokens: 8000,
@@ -40,12 +40,12 @@ export class DynamicContextBuilder {
   // ═══════════════════════════════════════════════════════════════════
 
   async build(
-    originalSystem: string | any[] | undefined,
+    originalSystem: string | TextBlockParam[] | undefined,
     request: {
-      messages: any[];
+      messages: MessageParam[];
       projectPath?: string;
       sessionId?: string;
-      tools?: any[];
+      tools?: Tool[];
     }
   ): Promise<ContextBuildResult> {
     // Reset build errors for this build
@@ -213,7 +213,7 @@ export class DynamicContextBuilder {
   // REQUEST ANALYSIS
   // ═══════════════════════════════════════════════════════════════════
 
-  private analyzeRequest(request: { messages: any[]; tools?: any[] }): RequestAnalysis {
+  private analyzeRequest(request: { messages: MessageParam[]; tools?: Tool[] }): RequestAnalysis {
     const recentMessages = request.messages.slice(-3);
     const lastUserMessage = recentMessages.find(m => m.role === 'user');
     const content = typeof lastUserMessage?.content === 'string'
@@ -351,7 +351,7 @@ export class DynamicContextBuilder {
   // ═══════════════════════════════════════════════════════════════════
 
   private assembleSystemPrompt(
-    originalSystem: string | any[] | undefined,
+    originalSystem: string | TextBlockParam[] | undefined,
     sections: ContextSection[]
   ): string {
     const parts: string[] = [];
@@ -394,7 +394,7 @@ export class DynamicContextBuilder {
     return parts.join('\n\n');
   }
 
-  private estimateSystemTokens(system: string | any[] | undefined): number {
+  private estimateSystemTokens(system: string | TextBlockParam[] | undefined): number {
     if (!system) return 0;
 
     if (typeof system === 'string') {

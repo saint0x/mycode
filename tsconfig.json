@@ -19,5 +19,5 @@
     "jsxImportSource": "solid-js"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/types/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "ui"]
+  "exclude": ["node_modules", "dist", "ui", "src/tui"]
 }

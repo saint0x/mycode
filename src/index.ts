@@ -19,33 +19,28 @@ import { EventEmitter } from "node:events";
 import { initMemoryService, getMemoryService, hasMemoryService } from "./memory";
 import { initContextBuilder } from "./context";
 import type { MemoryConfig, MemoryCategory } from "./memory/types";
-import { initHooksManager, getHooksManager, hasHooksManager } from "./hooks";
+import { initHooksManager, hasHooksManager } from "./hooks";
+import type { HookConfig } from "./hooks/types";
 import { initPluginManager } from "./plugins";
+import type { PluginConfig } from "./plugins/types";
 import { initSkillsManager } from "./skills";
-import type { CCRConfig } from "./types/request";
-import type { FastifyRequest, FastifyReply } from "fastify";
+import type { CCRConfig, CCRRequest, CCRReply } from "./types/request";
 
 const event = new EventEmitter()
 
-// Extended request interface for CCR
-interface CCRFastifyRequest extends FastifyRequest {
-  sessionId?: string;
-  projectPath?: string;
-  agents?: string[];
-  contextAnalysis?: import("./context/types").RequestAnalysis;
-  routeInfo?: {
-    provider?: string;
-    model?: string;
-  };
-  body: Record<string, unknown> & {
-    messages?: Array<{ role: string; content: unknown }>;
-    tools?: Array<{ name: string; description: string; input_schema: unknown }>;
-    system?: string;
-  };
+// Use CCRRequest from types/request
+type CCRFastifyRequest = CCRRequest;
+
+// Generic logger interface
+interface Logger {
+  error(message: string | object, ...args: unknown[]): void;
+  warn(message: string | object, ...args: unknown[]): void;
+  info(message: string | object, ...args: unknown[]): void;
+  debug(message: string | object, ...args: unknown[]): void;
 }
 
 // Helper for safe logging
-function logError(logger: FastifyRequest['log'], message: string, err?: unknown): void {
+function logError(logger: Logger, message: string, err?: unknown): void {
   if (err instanceof Error) {
     logger.error({ err }, message);
   } else {
@@ -166,7 +161,7 @@ async function initializeExtensions(server: any, config: CCRConfig) {
       enabled: true,
       dbPath: config.Memory.dbPath || MEMORY_DB_PATH,
       embedding: {
-        provider: config.Memory.embedding?.provider || 'openai',
+        provider: (config.Memory.embedding?.provider || 'openai') as 'openai' | 'ollama' | 'local',
         apiKey: config.Memory.embedding?.apiKey || config.OPENAI_API_KEY,
         baseUrl: config.Memory.embedding?.baseUrl || config.OPENAI_BASE_URL,
         model: config.Memory.embedding?.model,
@@ -206,7 +201,14 @@ async function initializeExtensions(server: any, config: CCRConfig) {
   // Initialize hooks system
   if (config.Hooks?.enabled !== false) {
     try {
-      const hooksManager = initHooksManager(config.Hooks || { enabled: true });
+      const hooksConfig = config.Hooks as HookConfig;
+      const hookConfig: HookConfig = {
+        enabled: hooksConfig.enabled ?? true,
+        directory: hooksConfig.directory,
+        timeout: hooksConfig.timeout,
+        hooks: hooksConfig.hooks,
+      };
+      const hooksManager = initHooksManager(hookConfig);
       await hooksManager.loadHooksFromDir(config.Hooks?.directory || HOOKS_DIR);
       console.log("✅ Hooks system initialized");
     } catch (err) {
@@ -217,7 +219,14 @@ async function initializeExtensions(server: any, config: CCRConfig) {
   // Initialize plugins system
   if (config.Plugins?.enabled !== false) {
     try {
-      const pluginManager = initPluginManager(config.Plugins || { enabled: true });
+      const pluginsConfig = config.Plugins as PluginConfig;
+      const pluginConfig: PluginConfig = {
+        enabled: pluginsConfig.enabled ?? true,
+        directory: pluginsConfig.directory,
+        autoload: pluginsConfig.autoload,
+        disabled: pluginsConfig.disabled,
+      };
+      const pluginManager = initPluginManager(pluginConfig);
       if (config.Plugins?.autoload !== false) {
         await pluginManager.loadAllPlugins(config.Plugins?.directory || PLUGINS_DIR);
       }
@@ -243,7 +252,7 @@ async function initializeExtensions(server: any, config: CCRConfig) {
   // ═══════════════════════════════════════════════════════════════════
 
   // Add async preHandler hook for authentication
-  server.addHook("preHandler", async (req: FastifyRequest, reply: FastifyReply) => {
+  server.addHook("preHandler", async (req: CCRRequest, reply: CCRReply) => {
     return new Promise<void>((resolve, reject) => {
       const done = (err?: Error) => {
         if (err) reject(err);
@@ -256,7 +265,7 @@ async function initializeExtensions(server: any, config: CCRConfig) {
 
   // Legacy preHandler hook removed - newserver.ts handles all /v1/messages routing now
 
-  server.addHook("onError", async (request: FastifyRequest, reply: FastifyReply, error: Error) => {
+  server.addHook("onError", async (request: CCRRequest, reply: CCRReply, error: Error) => {
     event.emit('onError', request, reply, error);
   })
 

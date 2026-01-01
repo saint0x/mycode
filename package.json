@@ -11,7 +11,11 @@
     "start": "node dist/cli.js start",
     "stop": "node dist/cli.js stop",
     "status": "node dist/cli.js status",
-    "release": "npm run build && npm publish"
+    "lint": "eslint 'src/**/*.ts' --max-warnings 0",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint",
+    "release": "npm run check && npm run build && npm publish"
   },
   "keywords": [
     "claude",
@@ -23,6 +27,7 @@
   "author": "musistudio",
   "license": "MIT",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@hono/node-server": "^1.19.7",
     "@inquirer/prompts": "^5.0.0",
     "@opentui/core": "^0.1.67",
@@ -37,6 +42,7 @@
     "openai": "^6.15.0",
     "rotating-file-stream": "^3.2.7",
     "shell-quote": "^1.8.3",
+    "solid-js": "^1.9.9",
     "tiktoken": "^1.0.21",
     "uuid": "^11.1.0"
   },
@@ -48,8 +54,11 @@
     "@types/minimist": "^1.2.5",
     "@types/node": "^24.0.15",
     "@types/shell-quote": "^1.7.5",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
     "babel-preset-solid": "^1.9.10",
     "esbuild": "^0.25.1",
+    "eslint": "^9.39.2",
     "shx": "^0.4.0",
     "typescript": "^5.8.2"
   },

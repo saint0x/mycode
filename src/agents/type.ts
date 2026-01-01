@@ -1,9 +1,34 @@
+// Agent context interface
+export interface AgentContext {
+  req: {
+    body: {
+      messages: unknown[];
+      system?: unknown;
+      tools?: unknown[];
+      model?: string;
+      [key: string]: unknown;
+    };
+    headers?: Record<string, string | string[] | undefined>;
+    [key: string]: unknown;
+  };
+  config: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+// Input schema type for tools
+export interface ToolInputSchema {
+  type: string;
+  properties?: Record<string, unknown>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
 export interface ITool {
   name: string;
   description: string;
-  input_schema: any;
+  input_schema: ToolInputSchema;
 
-  handler: (args: any, context: any) => Promise<string>;
+  handler: (args: Record<string, unknown>, context: AgentContext) => Promise<string>;
 }
 
 export interface IAgent {
@@ -11,9 +36,9 @@ export interface IAgent {
 
   tools: Map<string, ITool>;
 
-  shouldHandle: (req: any, config: any) => boolean;
+  shouldHandle: (req: AgentContext['req'], config: Record<string, unknown>) => boolean;
 
-  reqHandler: (req: any, config: any) => void;
+  reqHandler: (req: AgentContext['req'], config: Record<string, unknown>) => void;
 
-  resHandler?: (payload: any, config: any) => void;
+  resHandler?: (payload: Record<string, unknown>, config: Record<string, unknown>) => void;
 }

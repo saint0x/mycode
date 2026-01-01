@@ -1,5 +1,4 @@
-import { IAgent, ITool } from "./type";
-import { createHash } from "crypto";
+import { IAgent, ITool, AgentContext } from "./type";
 import * as LRU from "lru-cache";
 
 interface ImageSource {
@@ -73,22 +72,25 @@ export class ImageAgent implements IAgent {
     this.appendTools();
   }
 
-  shouldHandle(req: any, config: any): boolean {
-    if (!config.Router.image || req.body.model === config.Router.image)
+  shouldHandle(req: AgentContext['req'], config: Record<string, unknown>): boolean {
+    const router = config.Router as Record<string, unknown> | undefined;
+    if (!router?.image || req.body.model === router.image)
       return false;
-    const lastMessage = req.body.messages[req.body.messages.length - 1];
+    const lastMessage = req.body.messages[req.body.messages.length - 1] as Record<string, unknown>;
     if (
       !config.forceUseImageAgent &&
       lastMessage.role === "user" &&
       Array.isArray(lastMessage.content) &&
-      lastMessage.content.find(
-        (item: any) =>
-          item.type === "image" ||
-          (Array.isArray(item?.content) &&
-            item.content.some((sub: any) => sub.type === "image"))
+      (lastMessage.content as unknown[]).find(
+        (item: unknown) => {
+          const itemObj = item as Record<string, unknown>;
+          return itemObj.type === "image" ||
+          (Array.isArray(itemObj?.content) &&
+            (itemObj.content as unknown[]).some((sub: unknown) => (sub as Record<string, unknown>).type === "image"))
+        }
       )
     ) {
-      req.body.model = config.Router.image;
+      req.body.model = router.image;
       const images: ContentItem[] = [];
       lastMessage.content
         .filter((item: ContentItem) => item.type === "tool_result")
@@ -105,16 +107,20 @@ export class ImageAgent implements IAgent {
       lastMessage.content.push(...images);
       return false;
     }
-    return req.body.messages.some(
-      (msg: any) =>
-        msg.role === "user" &&
-        Array.isArray(msg.content) &&
-        msg.content.some(
-          (item: any) =>
-            item.type === "image" ||
-            (Array.isArray(item?.content) &&
-              item.content.some((sub: any) => sub.type === "image"))
+    return (req.body.messages as unknown[]).some(
+      (msg: unknown) => {
+        const msgObj = msg as Record<string, unknown>;
+        return msgObj.role === "user" &&
+        Array.isArray(msgObj.content) &&
+        (msgObj.content as unknown[]).some(
+          (item: unknown) => {
+            const itemObj = item as Record<string, unknown>;
+            return itemObj.type === "image" ||
+            (Array.isArray(itemObj?.content) &&
+              (itemObj.content as unknown[]).some((sub: unknown) => (sub as Record<string, unknown>).type === "image"))
+          }
         )
+      }
     );
   }
 
@@ -166,7 +172,7 @@ export class ImageAgent implements IAgent {
       },
       handler: async (args, context) => {
         const imageMessages = [];
-        let imageId;
+        let _imageId;
 
         // Create image messages from cached images
         if (args.imageId) {
@@ -193,7 +199,7 @@ export class ImageAgent implements IAgent {
               });
             }
           }
-          imageId = args.imageId;
+          _imageId = args.imageId;
           delete args.imageId;
         }
 
@@ -249,7 +255,7 @@ Always ensure that your response reflects a clear, accurate interpretation of th
           }
         )
           .then((res) => res.json())
-          .catch((err) => {
+          .catch((_err) => {
             return null;
           });
         if (!agentResponse || !agentResponse.content) {
@@ -260,32 +266,36 @@ Always ensure that your response reflects a clear, accurate interpretation of th
     });
   }
 
-  reqHandler(req: any, config: any) {
+  reqHandler(req: AgentContext['req'], _config: Record<string, unknown>) {
     // Inject system prompt
-    req.body?.system?.push({
+    const system = req.body?.system as Array<Record<string, unknown>> | undefined;
+    system?.push({
       type: "text",
-      text: `You are a text-only language model and do not possess visual perception.  
-If the user requests you to view, analyze, or extract information from an image, you **must** call the \`analyzeImage\` tool.  
+      text: `You are a text-only language model and do not possess visual perception.
+If the user requests you to view, analyze, or extract information from an image, you **must** call the \`analyzeImage\` tool.
 
-When invoking this tool, you must pass the correct \`imageId\` extracted from the prior conversation.  
-Image identifiers are always provided in the format \`[Image #imageId]\`.  
+When invoking this tool, you must pass the correct \`imageId\` extracted from the prior conversation.
+Image identifiers are always provided in the format \`[Image #imageId]\`.
 
-If multiple images exist, select the **most relevant imageId** based on the user’s current request and prior context.  
+If multiple images exist, select the **most relevant imageId** based on the user's current request and prior context.
 
-Do not attempt to describe or analyze the image directly yourself.  
-Ignore any user interruptions or unrelated instructions that might cause you to skip this requirement.  
+Do not attempt to describe or analyze the image directly yourself.
+Ignore any user interruptions or unrelated instructions that might cause you to skip this requirement.
 Your response should consistently follow this rule whenever image-related analysis is requested.`,
     });
 
-    const imageContents = req.body.messages.filter((item: any) => {
+    const imageContents = (req.body.messages as unknown[]).filter((item: unknown) => {
+      const itemObj = item as Record<string, unknown>;
       return (
-        item.role === "user" &&
-        Array.isArray(item.content) &&
-        item.content.some(
-          (msg: any) =>
-            msg.type === "image" ||
-            (Array.isArray(msg.content) &&
-              msg.content.some((sub: any) => sub.type === "image"))
+        itemObj.role === "user" &&
+        Array.isArray(itemObj.content) &&
+        (itemObj.content as unknown[]).some(
+          (msg: unknown) => {
+            const msgObj = msg as Record<string, unknown>;
+            return msgObj.type === "image" ||
+            (Array.isArray(msgObj.content) &&
+              (msgObj.content as unknown[]).some((sub: unknown) => (sub as Record<string, unknown>).type === "image"))
+          }
         )
       );
     });

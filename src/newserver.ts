@@ -62,6 +62,44 @@ function anthropicToOpenAI(body: any): any {
     openAIBody.messages.push(...body.messages);
   }
 
+  // Transform tools from Anthropic to OpenAI format
+  if (body.tools && Array.isArray(body.tools)) {
+    openAIBody.tools = body.tools.map((tool: any) => ({
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.input_schema || { type: "object", properties: {} }
+      }
+    }));
+  }
+
+  // Transform tool_choice from Anthropic to OpenAI format
+  if (body.tool_choice) {
+    if (typeof body.tool_choice === 'object' && body.tool_choice.type) {
+      // Anthropic format: { type: "auto" | "any" | "tool", name?: string }
+      switch (body.tool_choice.type) {
+        case 'auto':
+          openAIBody.tool_choice = 'auto';
+          break;
+        case 'any':
+          openAIBody.tool_choice = 'required';
+          break;
+        case 'tool':
+          if (body.tool_choice.name) {
+            openAIBody.tool_choice = {
+              type: 'function',
+              function: { name: body.tool_choice.name }
+            };
+          }
+          break;
+      }
+    } else if (typeof body.tool_choice === 'string') {
+      // Simple string format
+      openAIBody.tool_choice = body.tool_choice === 'any' ? 'required' : body.tool_choice;
+    }
+  }
+
   // Optional parameters
   if (body.max_tokens) openAIBody.max_tokens = body.max_tokens;
   if (body.temperature) openAIBody.temperature = body.temperature;
@@ -81,18 +119,45 @@ function openAIChunkToAnthropic(chunk: string): string {
   try {
     const data = JSON.parse(chunk.slice(6));
     const delta = data.choices?.[0]?.delta;
+    const finishReason = data.choices?.[0]?.finish_reason;
 
-    if (!delta) return '';
+    if (!delta && !finishReason) return '';
 
-    // Convert to Anthropic format
+    let output = '';
+
+    // Handle tool calls in streaming
+    if (delta.tool_calls && delta.tool_calls.length > 0) {
+      for (const toolCall of delta.tool_calls) {
+        if (toolCall.function) {
+          // Tool call start
+          if (toolCall.function.name) {
+            output += `event: content_block_start\ndata: {"type":"tool_use","index":${toolCall.index || 0},"id":"${toolCall.id || 'tool_' + Date.now()}","name":"${toolCall.function.name}"}\n\n`;
+          }
+          // Tool call arguments delta
+          if (toolCall.function.arguments) {
+            output += `event: content_block_delta\ndata: {"delta":{"type":"input_json_delta","partial_json":${JSON.stringify(toolCall.function.arguments)}}}\n\n`;
+          }
+        }
+      }
+      return output;
+    }
+
+    // Handle text content
     if (delta.content) {
       return `event: content_block_delta\ndata: {"delta":{"type":"text_delta","text":${JSON.stringify(delta.content)}}}\n\n`;
     }
+
+    // Handle finish reason
+    if (finishReason) {
+      const stopReason = finishReason === 'tool_calls' ? 'tool_use' :
+                         finishReason === 'stop' ? 'end_turn' : finishReason;
+      output += `event: message_delta\ndata: {"delta":{"stop_reason":"${stopReason}"}}\n\n`;
+    }
+
+    return output;
   } catch (e) {
     return '';
   }
-
-  return '';
 }
 
 /**
@@ -102,16 +167,47 @@ function openAIToAnthropic(response: any): any {
   const choice = response.choices?.[0];
   if (!choice) return response;
 
+  // Build content array with text and tool uses
+  const content: any[] = [];
+
+  // Add text content if present
+  if (choice.message?.content) {
+    content.push({
+      type: "text",
+      text: choice.message.content
+    });
+  }
+
+  // Add tool calls if present
+  if (choice.message?.tool_calls && Array.isArray(choice.message.tool_calls)) {
+    for (const toolCall of choice.message.tool_calls) {
+      if (toolCall.type === 'function' && toolCall.function) {
+        content.push({
+          type: "tool_use",
+          id: toolCall.id || `tool_${Date.now()}_${Math.random()}`,
+          name: toolCall.function.name,
+          input: toolCall.function.arguments ?
+            (typeof toolCall.function.arguments === 'string' ?
+              JSON.parse(toolCall.function.arguments) :
+              toolCall.function.arguments) :
+            {}
+        });
+      }
+    }
+  }
+
+  // Map finish_reason
+  const stopReason = choice.finish_reason === 'tool_calls' ? 'tool_use' :
+                     choice.finish_reason === 'stop' ? 'end_turn' :
+                     choice.finish_reason || 'end_turn';
+
   return {
     id: response.id,
     type: "message",
     role: "assistant",
-    content: [{
-      type: "text",
-      text: choice.message?.content || ""
-    }],
+    content: content.length > 0 ? content : [{ type: "text", text: "" }],
     model: response.model,
-    stop_reason: choice.finish_reason === "stop" ? "end_turn" : choice.finish_reason,
+    stop_reason: stopReason,
     usage: {
       input_tokens: response.usage?.prompt_tokens || 0,
       output_tokens: response.usage?.completion_tokens || 0
@@ -242,6 +338,21 @@ export const createServer = (config: ServerConfig): Server => {
         case 'anthropic':
           headers["x-api-key"] = providerConfig.api_key;
           headers["anthropic-version"] = "2023-06-01";
+
+          // Add beta headers for advanced features
+          const betaFeatures = [
+            "advanced-tool-use-2025-11-20",
+            "fine-grained-tool-streaming-2025-05-14",
+            "code-execution-2025-08-25",
+            "interleaved-thinking-2025-05-14"
+          ];
+
+          // Allow passing custom beta headers from request
+          if (body.headers?.["anthropic-beta"]) {
+            headers["anthropic-beta"] = body.headers["anthropic-beta"];
+          } else {
+            headers["anthropic-beta"] = betaFeatures.join(",");
+          }
           break;
 
         case 'openrouter':
@@ -295,7 +406,9 @@ export const createServer = (config: ServerConfig): Server => {
       const needsTransform = providerType === 'openrouter' || providerType === 'openai';
       const transformedData = needsTransform ? openAIToAnthropic(responseData) : responseData;
 
-      return c.json(transformedData, response.status as number);
+      // Return with proper status code
+      const statusCode = response.ok ? 200 : response.status;
+      return c.json(transformedData, statusCode as any);
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Internal server error";

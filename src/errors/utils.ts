@@ -10,15 +10,8 @@ import {
   DatabaseError,
   MemoryError,
   EmbeddingError,
-  ContextBuilderError,
-  SubAgentError,
-  RouterError,
   APIError,
-  StreamError,
-  ConfigError,
-  AgentError,
   type ErrorContext,
-  type RecoverySuggestion,
 } from './types';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -69,7 +62,7 @@ export function wrapError(
 export function wrapDatabaseError(
   error: unknown,
   operation: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ): DatabaseError {
   const message = error instanceof Error ? error.message : String(error);
   const cause = error instanceof Error ? error : undefined;
@@ -101,7 +94,7 @@ export function wrapMemoryError(
   options?: {
     scope?: 'global' | 'project';
     projectPath?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }
 ): MemoryError {
   const message = error instanceof Error ? error.message : String(error);

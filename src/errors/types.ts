@@ -121,9 +121,9 @@ export interface ErrorContext {
   /** Component/module where error occurred */
   component: string;
   /** Additional details about the error */
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   /** Input that caused the error (sanitized) */
-  input?: any;
+  input?: unknown;
   /** Timestamp of the error */
   timestamp: number;
   /** Request ID if available */
@@ -275,7 +275,7 @@ export class DatabaseError extends CCRError {
       operation: string;
       query?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {
@@ -319,7 +319,7 @@ export class MemoryError extends CCRError {
       scope?: 'global' | 'project';
       projectPath?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {
@@ -357,7 +357,7 @@ export class EmbeddingError extends CCRError {
       provider: string;
       operation: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     const suggestions: RecoverySuggestion[] = [];
@@ -509,7 +509,7 @@ export class RouterError extends CCRError {
       code?: ErrorCode;
       operation: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {
@@ -547,7 +547,7 @@ export class APIError extends CCRError {
       statusCode?: number;
       endpoint?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     const suggestions: RecoverySuggestion[] = [];
@@ -604,7 +604,7 @@ export class StreamError extends CCRError {
       code?: ErrorCode;
       operation: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {
@@ -638,7 +638,7 @@ export class ConfigError extends CCRError {
       operation: string;
       configPath?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {
@@ -676,7 +676,7 @@ export class AgentError extends CCRError {
       agentName?: string;
       toolName?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {

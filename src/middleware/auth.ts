@@ -1,8 +1,22 @@
-import { FastifyRequest, FastifyReply } from "fastify";
+// Generic request/reply types (no longer using Fastify)
+interface GenericRequest {
+  url: string;
+  headers: {
+    origin?: string;
+    authorization?: string | string[];
+    "x-api-key"?: string | string[];
+  };
+}
+
+interface GenericReply {
+  status(code: number): GenericReply;
+  send(data: string): void;
+  header(name: string, value: string): GenericReply;
+}
 
 export const apiKeyAuth =
   (config: any) =>
-  async (req: FastifyRequest, reply: FastifyReply, done: () => void) => {
+  async (req: GenericRequest, reply: GenericReply, done: () => void) => {
     // Public endpoints that don't require authentication
     if (["/", "/health"].includes(req.url) || req.url.startsWith("/ui")) {
       return done();

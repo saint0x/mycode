@@ -58,7 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_objects_created ON __objects(created_at);
 `;
 
 export class MemoryDatabase {
-  private db: Database;
+  private db: DatabaseType;
   private static instance: MemoryDatabase | null = null;
   private readonly dbPath: string;
 

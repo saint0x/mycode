@@ -1,4 +1,4 @@
-import { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
+import { MessageParam, Tool, TextBlockParam } from "@anthropic-ai/sdk/resources/messages";
 import { get_encoding } from "tiktoken";
 
 // Sub-agent headers
@@ -7,9 +7,16 @@ export const SUBAGENT_ID_HEADER = 'x-ccr-subagent-id';
 
 const enc = get_encoding("cl100k_base");
 
+interface ContentPart {
+  type: string;
+  text?: string;
+  input?: unknown;
+  content?: string | unknown;
+}
+
 export const calculateTokenCount = (
   messages: MessageParam[],
-  system: any,
+  system: string | TextBlockParam[] | undefined,
   tools: Tool[]
 ) => {
   let tokenCount = 0;
@@ -18,16 +25,17 @@ export const calculateTokenCount = (
       if (typeof message.content === "string") {
         tokenCount += enc.encode(message.content).length;
       } else if (Array.isArray(message.content)) {
-        message.content.forEach((contentPart: any) => {
-          if (contentPart.type === "text") {
-            tokenCount += enc.encode(contentPart.text).length;
-          } else if (contentPart.type === "tool_use") {
-            tokenCount += enc.encode(JSON.stringify(contentPart.input)).length;
-          } else if (contentPart.type === "tool_result") {
+        message.content.forEach((contentPart: unknown) => {
+          const part = contentPart as ContentPart;
+          if (part.type === "text" && typeof part.text === "string") {
+            tokenCount += enc.encode(part.text).length;
+          } else if (part.type === "tool_use") {
+            tokenCount += enc.encode(JSON.stringify(part.input)).length;
+          } else if (part.type === "tool_result") {
             tokenCount += enc.encode(
-              typeof contentPart.content === "string"
-                ? contentPart.content
-                : JSON.stringify(contentPart.content)
+              typeof part.content === "string"
+                ? part.content
+                : JSON.stringify(part.content)
             ).length;
           }
         });
@@ -37,14 +45,10 @@ export const calculateTokenCount = (
   if (typeof system === "string") {
     tokenCount += enc.encode(system).length;
   } else if (Array.isArray(system)) {
-    system.forEach((item: any) => {
+    system.forEach((item: TextBlockParam) => {
       if (item.type !== "text") return;
       if (typeof item.text === "string") {
         tokenCount += enc.encode(item.text).length;
-      } else if (Array.isArray(item.text)) {
-        item.text.forEach((textPart: any) => {
-          tokenCount += enc.encode(textPart || "").length;
-        });
       }
     });
   }

@@ -8,7 +8,7 @@
  * - ccr_forget: Delete a memory by ID
  */
 
-import type { IAgent, ITool } from './type';
+import type { IAgent, ITool, AgentContext } from './type';
 import { getMemoryService, hasMemoryService } from '../memory';
 import type { MemoryCategory } from '../memory/types';
 
@@ -52,7 +52,7 @@ const rememberTool: ITool = {
     },
     required: ['content', 'scope', 'category'],
   },
-  handler: async (args: { content: string; scope: 'global' | 'project'; category: string }, ctx: any) => {
+  handler: async (args: { content: string; scope: 'global' | 'project'; category: string }, ctx: AgentContext) => {
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({
@@ -117,7 +117,7 @@ const recallTool: ITool = {
     },
     required: ['query'],
   },
-  handler: async (args: { query: string; scope?: 'global' | 'project' | 'both'; limit?: number }, ctx: any) => {
+  handler: async (args: { query: string; scope?: 'global' | 'project' | 'both'; limit?: number }, ctx: AgentContext) => {
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({
@@ -176,7 +176,7 @@ const forgetTool: ITool = {
     },
     required: ['memoryId', 'scope'],
   },
-  handler: async (args: { memoryId: string; scope: 'global' | 'project' }, ctx: any) => {
+  handler: async (args: { memoryId: string; scope: 'global' | 'project' }, _ctx: any) => {
     try {
       if (!hasMemoryService()) {
         return JSON.stringify({
@@ -233,14 +233,15 @@ export const memoryAgent: IAgent = {
   /**
    * Only activate if memory service is enabled and available
    */
-  shouldHandle(req: any, config: any): boolean {
-    return config.Memory?.enabled === true && hasMemoryService();
+  shouldHandle(_req: AgentContext['req'], config: Record<string, unknown>): boolean {
+    const memory = config.Memory as Record<string, unknown> | undefined;
+    return memory?.enabled === true && hasMemoryService();
   },
 
   /**
    * No request modifications needed - tools are injected automatically
    */
-  reqHandler(req: any, config: any): void {
+  reqHandler(_req: AgentContext['req'], _config: Record<string, unknown>): void {
     // Memory tools are injected via the standard agent pipeline
     // System prompt already has memory instructions from context builder
   },

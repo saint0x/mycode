@@ -1,5 +1,5 @@
-import { HookConfig } from '../hooks/types';
-import { PluginConfig } from '../plugins/types';
+import type { HookConfig } from '../hooks/types';
+import type { PluginConfig } from '../plugins/types';
 
 export interface CCRConfig {
   // ═══════════════════════════════════════════════════════════════════
@@ -32,8 +32,8 @@ export interface CCRConfig {
   // ═══════════════════════════════════════════════════════════════════
   // EXTENSIBILITY (Phase 10 - NEW)
   // ═══════════════════════════════════════════════════════════════════
-  Hooks?: HookConfig;
-  Plugins?: PluginConfig;
+  Hooks?: Partial<HookConfig>;
+  Plugins?: Partial<PluginConfig>;
   Skills?: SkillsConfig;
 
   // ═══════════════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { config } from 'dotenv';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import fs, { existsSync, readFileSync } from "fs";
+import { join } from "path";
 import { homedir } from 'os';
 
 // Try to load .env from multiple locations
@@ -22,13 +22,11 @@ import {
   isServiceRunning,
   getServiceInfo,
 } from "./utils/processCheck";
-import { runModelSelector } from "./utils/modelSelector"; // ADD THIS LINE
+import { runModelSelector } from "./utils/modelSelector";
 import { activateCommand } from "./utils/activateCommand";
 import { version } from "../package.json";
 import { spawn, exec } from "child_process";
 import { PID_FILE, REFERENCE_COUNT_FILE, CONFIG_FILE } from "./constants";
-import fs, { existsSync, readFileSync } from "fs";
-import { join } from "path";
 import { migrateFromLegacy, detectLegacyConfig, detectNewConfig } from "./utils/migration";
 
 const command = process.argv[2];
@@ -118,14 +116,14 @@ async function main() {
         if (existsSync(REFERENCE_COUNT_FILE)) {
           try {
             fs.unlinkSync(REFERENCE_COUNT_FILE);
-          } catch (e) {
+          } catch (_e) {
             // Ignore cleanup errors
           }
         }
         console.log(
           "claude code router service has been successfully stopped."
         );
-      } catch (e) {
+      } catch (_e) {
         console.log(
           "Failed to stop the service. It may have already been stopped."
         );
@@ -302,10 +300,10 @@ async function main() {
               );
               process.exit(1);
             }
-          } catch (error: any) {
+          } catch (error: unknown) {
             console.error(
               "Failed to create default configuration:",
-              error.message
+              error instanceof Error ? error.message : String(error)
             );
             process.exit(1);
           }
@@ -358,12 +356,12 @@ async function main() {
         if (existsSync(REFERENCE_COUNT_FILE)) {
           try {
             fs.unlinkSync(REFERENCE_COUNT_FILE);
-          } catch (e) {
+          } catch (_e) {
             // Ignore cleanup errors
           }
         }
         console.log("claude code router service has been stopped.");
-      } catch (e) {
+      } catch (_e) {
         console.log("Service was not running or failed to stop.");
         cleanupPidFile();
       }

@@ -1,7 +1,7 @@
 import { imageAgent } from './image.agent'
 import { subAgentAgent } from '../subagent'
 import { memoryAgent } from './memory.agent'
-import { IAgent } from './type';
+import { IAgent, ITool } from './type';
 
 export class AgentsManager {
     private agents: Map<string, IAgent> = new Map();
@@ -35,8 +35,8 @@ export class AgentsManager {
      * Get all tools from all agents
      * @returns Array of tools
      */
-    getAllTools(): any[] {
-        const allTools: any[] = [];
+    getAllTools(): ITool[] {
+        const allTools: ITool[] = [];
         for (const agent of this.agents.values()) {
             allTools.push(...agent.tools.values());
         }
