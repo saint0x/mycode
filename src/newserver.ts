@@ -17,8 +17,26 @@ import { getSkillsManager, hasSkillsManager } from "./skills";
 import type { ProviderConfig } from "./config/schema";
 import { version } from "../package.json";
 import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
-import type { Context } from "hono";
+import { Context } from "hono";
 import { stream } from "hono/streaming";
+import { parseToolArguments, validateToolSchema, safeJSONParse, validateOpenAIToolCall, filterToolArguments } from "./utils/toolValidation";
+import { ToolTransformationError, ErrorCode } from "./errors/types";
+import { executeWithRetry, isRateLimitError, isNetworkError } from "./errors/utils";
+import { appendFileSync } from "fs";
+
+// Debug logger that writes to file (works even when stdio is /dev/null)
+function debugLog(message: string, data?: unknown): void {
+  const timestamp = new Date().toISOString();
+  const logMessage = data
+    ? `[${timestamp}] ${message} ${JSON.stringify(data, null, 2)}\n`
+    : `[${timestamp}] ${message}\n`;
+
+  try {
+    appendFileSync('./logs/tool-transform-debug.log', logMessage);
+  } catch {
+    // Silently fail if we can't write to log file
+  }
+}
 
 interface TokenCountBody {
   messages: MessageParam[];
@@ -99,9 +117,50 @@ function detectProviderType(apiBaseUrl: string): 'anthropic' | 'openrouter' | 'o
 }
 
 /**
+ * Convert Anthropic JSON Schema (draft-07) to OpenAI's supported subset
+ *
+ * OpenAI function calling supports ONLY these JSON Schema fields:
+ * - type, description, enum, properties, items, required
+ *
+ * It does NOT support:
+ * - $schema, additionalProperties, minLength, maxLength, minItems, maxItems,
+ *   pattern, format, and other JSON Schema validation keywords
+ *
+ * This is the CORRECT transformation between formats, not a workaround.
+ */
+function convertAnthropicSchemaToOpenAI(schema: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+
+  // OpenAI-supported core fields
+  if (schema.type !== undefined) result.type = schema.type;
+  if (schema.description !== undefined) result.description = schema.description;
+  if (schema.enum !== undefined) result.enum = schema.enum;
+  if (schema.required !== undefined) result.required = schema.required;
+
+  // Recursively convert properties
+  if (schema.properties && typeof schema.properties === 'object') {
+    result.properties = {};
+    const props = schema.properties as Record<string, unknown>;
+    for (const [key, value] of Object.entries(props)) {
+      if (value && typeof value === 'object') {
+        (result.properties as Record<string, unknown>)[key] =
+          convertAnthropicSchemaToOpenAI(value as Record<string, unknown>);
+      }
+    }
+  }
+
+  // Recursively convert array items
+  if (schema.items && typeof schema.items === 'object') {
+    result.items = convertAnthropicSchemaToOpenAI(schema.items as Record<string, unknown>);
+  }
+
+  return result;
+}
+
+/**
  * Transform Anthropic request to OpenAI format
  */
-function anthropicToOpenAI(body: AnthropicRequestBody): OpenAIRequestBody {
+function anthropicToOpenAI(body: AnthropicRequestBody, debugMode = false): OpenAIRequestBody {
   const openAIBody: OpenAIRequestBody = {
     model: body.model,
     messages: [],
@@ -121,16 +180,95 @@ function anthropicToOpenAI(body: AnthropicRequestBody): OpenAIRequestBody {
     openAIBody.messages.push(...body.messages);
   }
 
-  // Transform tools from Anthropic to OpenAI format
+  // Transform tools from Anthropic to OpenAI format - STRICT VALIDATION
   if (body.tools && Array.isArray(body.tools)) {
-    openAIBody.tools = body.tools.map((tool) => ({
-      type: "function",
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.input_schema || { type: "object", properties: {} }
+    const toolValidationErrors: string[] = [];
+
+    // Validate ALL tools first - REJECT request if ANY tool is invalid
+    const validatedTools: Array<{ name: string; description?: string; input_schema: Record<string, unknown> }> = [];
+
+    for (let index = 0; index < body.tools.length; index++) {
+      const tool = body.tools[index];
+
+      if (debugMode) {
+        const logData = {
+          name: tool?.name,
+          hasDescription: !!(tool?.description),
+          hasSchema: !!(tool?.input_schema),
+        };
+        console.log(`[ToolTransform] Validating incoming tool at index ${index}:`, logData);
+        debugLog(`[ToolTransform] Validating incoming tool at index ${index}:`, logData);
       }
-    }));
+
+      const validationResult = validateToolSchema(tool, debugMode);
+
+      if (!validationResult.isValid) {
+        // REJECT - NO FALLBACKS
+        const errorMsg = `Tool at index ${index} (${tool?.name || 'unnamed'}) failed validation: ${validationResult.errors.join('; ')}`;
+        toolValidationErrors.push(errorMsg);
+
+        if (debugMode) {
+          console.error(`[ToolTransform] ${errorMsg}`);
+          debugLog(`[ToolTransform] ERROR: ${errorMsg}`);
+        }
+      } else if (validationResult.tool) {
+        validatedTools.push(validationResult.tool);
+
+        if (debugMode) {
+          console.log(`[ToolTransform] Tool validated successfully:`, {
+            name: validationResult.tool.name,
+            schemaType: (validationResult.tool.input_schema as { type?: string }).type,
+            hasProperties: !!(validationResult.tool.input_schema as { properties?: unknown }).properties,
+          });
+        }
+      }
+    }
+
+    // If ANY tools failed validation, REJECT the entire request
+    if (toolValidationErrors.length > 0) {
+      throw new ToolTransformationError(
+        `Tool validation failed for ${toolValidationErrors.length} tool(s)`,
+        {
+          code: ErrorCode.TOOL_VALIDATION_FAILED,
+          operation: 'request_tool_validation',
+          details: { errors: toolValidationErrors },
+        }
+      );
+    }
+
+    // Transform only VALID tools to OpenAI format with proper schema conversion
+    openAIBody.tools = validatedTools.map((tool) => {
+      // Convert Anthropic's full JSON Schema to OpenAI's supported subset
+      const openAISchema = convertAnthropicSchemaToOpenAI(tool.input_schema);
+
+      if (debugMode) {
+        const transformData = {
+          name: tool.name,
+          originalSchemaFields: Object.keys(tool.input_schema).length,
+          convertedSchemaFields: Object.keys(openAISchema).length,
+          removedFields: Object.keys(tool.input_schema)
+            .filter(k => !(k in openAISchema))
+            .join(', ') || 'none',
+        };
+        console.log(`[ToolTransform] Transforming tool to OpenAI format:`, transformData);
+        debugLog(`[ToolTransform] Transforming tool to OpenAI format:`, transformData);
+        debugLog(`[ToolTransform] OpenAI schema for ${tool.name}:`, openAISchema);
+      }
+
+      return {
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: openAISchema, // Converted schema, not raw input_schema
+        }
+      };
+    });
+
+    if (debugMode) {
+      console.log(`[ToolTransform] Successfully transformed ${openAIBody.tools.length} tools to OpenAI format`);
+      debugLog(`[ToolTransform] Successfully transformed ${openAIBody.tools.length} tools to OpenAI format`);
+    }
   }
 
   // Transform tool_choice from Anthropic to OpenAI format
@@ -171,12 +309,39 @@ function anthropicToOpenAI(body: AnthropicRequestBody): OpenAIRequestBody {
 /**
  * Transform OpenAI streaming chunk to Anthropic format
  */
-function openAIChunkToAnthropic(chunk: string): string {
-  if (!chunk.startsWith('data: ')) return chunk;
-  if (chunk === 'data: [DONE]') return 'event: message_stop\ndata: {}\n\n';
+function openAIChunkToAnthropic(chunk: string, debugMode = false): string {
+  // Handle complete SSE events (may include \n\n terminator)
+  const trimmedChunk = chunk.trim();
+  if (!trimmedChunk.startsWith('data: ')) return chunk;
+  if (trimmedChunk === 'data: [DONE]') return 'event: message_stop\ndata: {}\n\n';
+
+  interface StreamDelta {
+    tool_calls?: Array<{
+      index?: number;
+      id?: string;
+      function?: {
+        name?: string;
+        arguments?: string;
+      };
+    }>;
+    content?: string;
+  }
+
+  // Extract JSON data (remove 'data: ' prefix and trim whitespace/newlines)
+  const jsonString = trimmedChunk.slice(6).trim();
+  const data = safeJSONParse<{ choices?: Array<{ delta?: StreamDelta; finish_reason?: string }> }>(
+    jsonString,
+    'streaming_chunk'
+  );
+
+  if (!data) {
+    if (debugMode) {
+      console.error('[ToolTransform] Invalid streaming chunk:', chunk.slice(0, 100));
+    }
+    return ''; // Skip invalid chunks
+  }
 
   try {
-    const data = JSON.parse(chunk.slice(6));
     const delta = data.choices?.[0]?.delta;
     const finishReason = data.choices?.[0]?.finish_reason;
 
@@ -185,7 +350,7 @@ function openAIChunkToAnthropic(chunk: string): string {
     let output = '';
 
     // Handle tool calls in streaming
-    if (delta.tool_calls && delta.tool_calls.length > 0) {
+    if (delta && delta.tool_calls && delta.tool_calls.length > 0) {
       for (const toolCall of delta.tool_calls) {
         if (toolCall.function) {
           // Tool call start
@@ -202,7 +367,7 @@ function openAIChunkToAnthropic(chunk: string): string {
     }
 
     // Handle text content
-    if (delta.content) {
+    if (delta && delta.content) {
       return `event: content_block_delta\ndata: {"delta":{"type":"text_delta","text":${JSON.stringify(delta.content)}}}\n\n`;
     }
 
@@ -222,9 +387,9 @@ function openAIChunkToAnthropic(chunk: string): string {
 /**
  * Transform OpenAI response to Anthropic format
  */
-function openAIToAnthropic(response: OpenAIResponse): Record<string, unknown> {
+function openAIToAnthropic(response: OpenAIResponse, debugMode = false): Record<string, unknown> {
   const choice = response.choices?.[0];
-  if (!choice) return response;
+  if (!choice) return response as unknown as Record<string, unknown>;
 
   // Build content array with text and tool uses
   const content: Array<Record<string, unknown>> = [];
@@ -237,19 +402,72 @@ function openAIToAnthropic(response: OpenAIResponse): Record<string, unknown> {
     });
   }
 
-  // Add tool calls if present
+  // Add tool calls if present - STRICT VALIDATION
   if (choice.message?.tool_calls && Array.isArray(choice.message.tool_calls)) {
     for (const toolCall of choice.message.tool_calls) {
+      // Validate tool call structure
+      if (!validateOpenAIToolCall(toolCall, debugMode)) {
+        const errorData = {
+          toolCall: JSON.stringify(toolCall).slice(0, 200),
+        };
+        console.error('[ToolTransform] Invalid OpenAI tool call structure, skipping:', errorData);
+        debugLog('[ToolTransform] ERROR: Invalid OpenAI tool call structure, skipping:', errorData);
+        continue; // Skip invalid tool call
+      }
+
       if (toolCall.type === 'function' && toolCall.function) {
+        if (debugMode) {
+          const callData = {
+            name: toolCall.function.name,
+            id: toolCall.id,
+            argumentsType: typeof toolCall.function.arguments,
+            argumentsPreview: typeof toolCall.function.arguments === 'string' ?
+              (toolCall.function.arguments as string).slice(0, 200) :
+              JSON.stringify(toolCall.function.arguments).slice(0, 200),
+          };
+          console.log('[ToolTransform] Processing OpenAI tool call:', callData);
+          debugLog('[ToolTransform] Processing OpenAI tool call:', callData);
+        }
+
+        // Parse tool arguments with STRICT validation - NO empty object fallbacks
+        const parseResult = parseToolArguments(toolCall.function.arguments, debugMode);
+
+        if (!parseResult.isValid) {
+          // REJECT tool call with invalid arguments
+          const errorData = {
+            toolName: toolCall.function.name,
+            errors: parseResult.errors,
+            rawArgs: typeof toolCall.function.arguments === 'string' ?
+              (toolCall.function.arguments as string).slice(0, 100) :
+              typeof toolCall.function.arguments,
+          };
+          console.error('[ToolTransform] Failed to parse tool arguments:', errorData);
+          debugLog('[ToolTransform] ERROR: Failed to parse tool arguments:', errorData);
+          continue; // Skip tool call with unparseable arguments
+        }
+
+        let toolInput = parseResult.arguments || {};
+
+        // Filter out LLM-added metadata fields not in the tool schema
+        // This prevents validation errors from extra fields like 'id', 'priority', etc.
+        toolInput = filterToolArguments(toolInput, undefined, debugMode);
+
+        if (debugMode) {
+          const successData = {
+            name: toolCall.function.name,
+            id: toolCall.id,
+            argumentKeys: Object.keys(toolInput),
+            argumentValues: toolInput,
+          };
+          console.log('[ToolTransform] Successfully parsed and filtered tool arguments:', successData);
+          debugLog('[ToolTransform] Successfully parsed and filtered tool arguments:', successData);
+        }
+
         content.push({
           type: "tool_use",
           id: toolCall.id || `tool_${Date.now()}_${Math.random()}`,
           name: toolCall.function.name,
-          input: toolCall.function.arguments ?
-            (typeof toolCall.function.arguments === 'string' ?
-              JSON.parse(toolCall.function.arguments) :
-              toolCall.function.arguments) :
-            {}
+          input: toolInput,
         });
       }
     }
@@ -293,6 +511,9 @@ export const createServer = (config: ServerConfig): Server => {
       // Load full config to get Router settings
       const fullConfig = await readConfigFile();
 
+      // Enable debug mode if configured
+      const debugMode = fullConfig.DEBUG_TOOL_TRANSFORM || false;
+
       // Apply Router logic if Router config exists
       let targetModel = body.model;
       if (fullConfig.Router) {
@@ -301,7 +522,7 @@ export const createServer = (config: ServerConfig): Server => {
 
         // Check for webSearch - if tools include web search capabilities
         if (fullConfig.Router.webSearch && body.tools) {
-          const hasWebSearchTool = body.tools.some((tool) =>
+          const hasWebSearchTool = body.tools.some((tool: { name?: string; description?: string }) =>
             tool.name?.toLowerCase().includes('search') ||
             tool.name?.toLowerCase().includes('web') ||
             tool.description?.toLowerCase().includes('search the web')
@@ -340,8 +561,9 @@ export const createServer = (config: ServerConfig): Server => {
         }
 
         // Apply the selected route
-        if (fullConfig.Router[routeType]) {
-          targetModel = fullConfig.Router[routeType];
+        const routerConfigTyped = fullConfig.Router as unknown as Record<string, string | number | undefined>;
+        if (routerConfigTyped[routeType]) {
+          targetModel = routerConfigTyped[routeType] as string;
         } else if (fullConfig.Router.default) {
           targetModel = fullConfig.Router.default;
         }
@@ -379,7 +601,53 @@ export const createServer = (config: ServerConfig): Server => {
       // Transform request body based on provider
       let requestBody = body;
       if (providerType === 'openrouter' || providerType === 'openai') {
-        requestBody = anthropicToOpenAI(body);
+        try {
+          requestBody = anthropicToOpenAI(body, debugMode);
+
+          if (debugMode) {
+            server.logger.info?.('Transformed request:', {
+              provider: providerType,
+              model: modelName,
+              hasTools: !!requestBody.tools,
+              toolCount: requestBody.tools?.length || 0,
+            });
+          }
+        } catch (error) {
+          // Handle tool validation errors (400) vs transformation errors (500)
+          if (error instanceof ToolTransformationError &&
+              error.code === ErrorCode.TOOL_VALIDATION_FAILED) {
+            // Tool validation failed - return 400 Bad Request
+            server.logger.error?.('Tool validation failed:', error.toLogFormat());
+
+            return c.json({
+              error: {
+                type: 'invalid_request_error',
+                message: error.message,
+                details: error.context.details,
+              }
+            }, 400);
+          }
+
+          // Other transformation errors - return 500
+          const transformError = error instanceof ToolTransformationError ?
+            error :
+            new ToolTransformationError(
+              'Failed to transform Anthropic request to OpenAI format',
+              {
+                code: ErrorCode.TOOL_TRANSFORMATION_FAILED,
+                operation: 'request_transformation',
+                provider: providerType,
+                cause: error instanceof Error ? error : undefined,
+              }
+            );
+
+          server.logger.error?.(transformError.toLogFormat());
+
+          return c.json({
+            error: transformError.toUserFormat(),
+            type: 'tool_transformation_error',
+          }, 500);
+        }
       }
 
       // Build provider-specific headers
@@ -422,12 +690,57 @@ export const createServer = (config: ServerConfig): Server => {
         headers["X-Title"] = "MyCode Router";
       }
 
-      // Proxy to actual provider
-      const response = await fetch(providerConfig.api_base_url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(requestBody),
-      });
+      // Proxy to actual provider with timeout and retry logic
+      const timeoutMs = fullConfig.API_TIMEOUT_MS || 120000; // Default 2 minutes
+      const response = await executeWithRetry(
+        async () => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+          try {
+            return await fetch(providerConfig.api_base_url, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        },
+        {
+          maxRetries: 3,
+          delayMs: 1000,
+          backoffMultiplier: 2,
+          shouldRetry: (error) => {
+            // Retry on network errors, socket errors, timeouts, and rate limits
+            if (isRateLimitError(error) || isNetworkError(error)) {
+              return true;
+            }
+            if (error instanceof Error) {
+              const message = error.message.toLowerCase();
+              return (
+                message.includes('socket') ||
+                message.includes('econnreset') ||
+                message.includes('econnrefused') ||
+                message.includes('timeout') ||
+                message.includes('fetch failed') ||
+                message.includes('503') ||
+                message.includes('502')
+              );
+            }
+            return false;
+          },
+          onRetry: (error, attempt) => {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            server.logger.warn?.(
+              `[Retry ${attempt}/3] Provider request failed: ${errorMsg}. Retrying...`
+            ) || console.warn(
+              `[Retry ${attempt}/3] Provider request failed: ${errorMsg}. Retrying...`
+            );
+          },
+        }
+      );
 
       // Handle streaming responses
       if (body.stream && response.body) {
@@ -436,17 +749,40 @@ export const createServer = (config: ServerConfig): Server => {
         return stream(c, async (stream) => {
           const reader = response.body!.getReader();
           const decoder = new TextDecoder();
+          let buffer = ''; // SSE event buffer for incomplete chunks
 
           try {
             while (true) {
               const { done, value } = await reader.read();
-              if (done) break;
+              if (done) {
+                // Flush any remaining buffer content
+                if (buffer.trim()) {
+                  const output = needsTransform ? openAIChunkToAnthropic(buffer, debugMode) : buffer;
+                  if (output) await stream.write(output);
+                }
+                break;
+              }
 
-              const chunk = decoder.decode(value, { stream: true });
+              // Append to buffer
+              buffer += decoder.decode(value, { stream: true });
 
-              // Transform OpenAI chunks to Anthropic format
-              const output = needsTransform ? openAIChunkToAnthropic(chunk) : chunk;
-              if (output) await stream.write(output);
+              // SSE events are separated by \n\n - split and process complete events
+              const events = buffer.split('\n\n');
+
+              // Keep the last (potentially incomplete) fragment in buffer
+              buffer = events.pop() || '';
+
+              // Process complete events
+              for (const event of events) {
+                if (!event.trim()) continue;
+
+                // Add back the \n\n separator that was removed by split
+                const completeEvent = event + '\n\n';
+
+                // Transform OpenAI chunks to Anthropic format
+                const output = needsTransform ? openAIChunkToAnthropic(completeEvent, debugMode) : completeEvent;
+                if (output) await stream.write(output);
+              }
             }
           } finally {
             reader.releaseLock();
@@ -459,11 +795,45 @@ export const createServer = (config: ServerConfig): Server => {
 
       // Transform OpenAI response to Anthropic format
       const needsTransform = providerType === 'openrouter' || providerType === 'openai';
-      const transformedData = needsTransform ? openAIToAnthropic(responseData) : responseData;
+      let transformedData;
+
+      if (needsTransform) {
+        try {
+          transformedData = openAIToAnthropic(responseData, debugMode);
+
+          if (debugMode) {
+            server.logger.info?.('Transformed response:', {
+              provider: providerType,
+              hasContent: !!transformedData.content,
+              contentBlocks: Array.isArray(transformedData.content) ?
+                transformedData.content.length : 0,
+            });
+          }
+        } catch (error) {
+          const transformError = new ToolTransformationError(
+            'Failed to transform OpenAI response to Anthropic format',
+            {
+              code: ErrorCode.TOOL_TRANSFORMATION_FAILED,
+              operation: 'response_transformation',
+              provider: providerType,
+              cause: error instanceof Error ? error : undefined,
+            }
+          );
+
+          server.logger.error?.(transformError.toLogFormat());
+
+          return c.json({
+            error: transformError.toUserFormat(),
+            type: 'tool_transformation_error',
+          }, 500);
+        }
+      } else {
+        transformedData = responseData;
+      }
 
       // Return with proper status code
       const statusCode = response.ok ? 200 : response.status;
-      return c.json(transformedData, statusCode);
+      return c.json(transformedData, statusCode as 200 | 400 | 500);
 
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Internal server error";

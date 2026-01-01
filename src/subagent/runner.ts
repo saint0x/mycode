@@ -18,6 +18,8 @@ import type {
   SubAgentResultMetadata,
   SubAgentProgressCallback,
   SubAgentConfig,
+  SubAgentStreamEventType,
+  SubAgentStreamEventData,
 } from './types';
 import type { Tool } from '@anthropic-ai/sdk/resources/messages';
 import {
@@ -402,13 +404,21 @@ export class SubAgentRunner {
    */
   private getFilteredTools(config: SubAgentConfig): Tool[] {
     // Get base tools from config or default set
-    const baseTools = this.context.config?.tools || [];
+    const baseTools = (this.context.config as { tools?: Tool[] })?.tools || [];
 
     // Filter tools based on sub-agent type
     const filtered = filterToolsForSubAgent(baseTools, config);
 
     // Remove spawn_subagent to prevent infinite recursion
-    return filtered.filter(t => t.name !== 'spawn_subagent');
+    const finalTools = filtered.filter(t => t.name !== 'spawn_subagent');
+
+    // Add any custom tools from context config if available
+    const customTools = (this.context.config as { tools?: Tool[] }).tools;
+    if (customTools) {
+      return [...finalTools, ...customTools];
+    }
+
+    return finalTools;
   }
 
   /**
@@ -423,30 +433,52 @@ export class SubAgentRunner {
 
     requestBody.stream = stream;
 
+    // Build headers as Record<string, string>
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      [SUBAGENT_DEPTH_HEADER]: String(this.context.depth + 1),
+      [SUBAGENT_ID_HEADER]: this.subAgentId,
+    };
+
+    if (apiKey) {
+      headers['x-api-key'] = apiKey;
+    }
+
+    // Add timeout to prevent hanging requests
+    const timeoutMs = this.context.config?.SubAgent?.defaultTimeout ||
+                      this.context.config?.API_TIMEOUT_MS ||
+                      120000; // Default 2 minutes
+
     let response: Response;
     try {
-      response = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          [SUBAGENT_DEPTH_HEADER]: String(this.context.depth + 1),
-          [SUBAGENT_ID_HEADER]: this.subAgentId,
-        },
-        body: JSON.stringify(requestBody),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        response = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
     } catch (error) {
-      // Network-level error (connection refused, DNS failure, etc.)
+      // Network-level error (connection refused, DNS failure, timeout, etc.)
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const isTimeout = errorMessage.toLowerCase().includes('abort') ||
+                        errorMessage.toLowerCase().includes('timeout');
+
       throw new SubAgentError(
         `Failed to connect to router at port ${port}: ${errorMessage}`,
         {
-          code: ErrorCode.SUBAGENT_NETWORK_ERROR,
+          code: isTimeout ? ErrorCode.SUBAGENT_TIMEOUT : ErrorCode.SUBAGENT_NETWORK_ERROR,
           operation: 'api_call',
           agentType: requestBody.agentType,
           parentRequestId: this.context.parentRequestId,
           cause: error instanceof Error ? error : undefined,
-          details: { port, depth: this.context.depth + 1 },
+          details: { port, depth: this.context.depth + 1, timeoutMs },
         }
       );
     }
@@ -635,10 +667,10 @@ export class SubAgentRunner {
    */
   private emitEvent(callback: SubAgentProgressCallback, data: Record<string, unknown>): void {
     callback({
-      type: data.type,
+      type: data.type as SubAgentStreamEventType,
       subAgentId: this.subAgentId,
       timestamp: Date.now(),
-      data,
+      data: data as unknown as SubAgentStreamEventData,
     });
   }
 }
