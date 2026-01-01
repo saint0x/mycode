@@ -99,12 +99,60 @@ export class Server {
     // Create Fastify-compatible logger
     const baseLogger = config.logger || console;
     this.logger = {
-      info: (...args: unknown[]) => baseLogger.info?.(...args) || baseLogger.log?.(...args) || console.log(...args),
-      error: (...args: unknown[]) => baseLogger.error?.(...args) || console.error(...args),
-      warn: (...args: unknown[]) => baseLogger.warn?.(...args) || console.warn(...args),
-      debug: (...args: unknown[]) => baseLogger.debug?.(...args) || baseLogger.log?.(...args) || console.log(...args),
-      trace: (...args: unknown[]) => baseLogger.trace?.(...args) || baseLogger.log?.(...args) || console.log(...args),
-      fatal: (...args: unknown[]) => baseLogger.fatal?.(...args) || baseLogger.error?.(...args) || console.error(...args),
+      info: (...args: unknown[]) => {
+        if (baseLogger && typeof baseLogger !== 'boolean') {
+          const logger = baseLogger as Console | { info?: (...args: unknown[]) => void; log?: (...args: unknown[]) => void };
+          logger.info?.(...args) ?? logger.log?.(...args) ?? console.log(...args);
+        } else {
+          console.log(...args);
+        }
+      },
+      error: (...args: unknown[]) => {
+        if (baseLogger && typeof baseLogger !== 'boolean') {
+          const logger = baseLogger as Console | { error?: (...args: unknown[]) => void };
+          logger.error?.(...args) ?? console.error(...args);
+        } else {
+          console.error(...args);
+        }
+      },
+      warn: (...args: unknown[]) => {
+        if (baseLogger && typeof baseLogger !== 'boolean') {
+          const logger = baseLogger as Console | { warn?: (...args: unknown[]) => void };
+          logger.warn?.(...args) ?? console.warn(...args);
+        } else {
+          console.warn(...args);
+        }
+      },
+      debug: (...args: unknown[]) => {
+        if (baseLogger && typeof baseLogger !== 'boolean') {
+          const logger = baseLogger as Console | { debug?: (...args: unknown[]) => void; log?: (...args: unknown[]) => void };
+          logger.debug?.(...args) ?? logger.log?.(...args) ?? console.log(...args);
+        } else {
+          console.log(...args);
+        }
+      },
+      trace: (...args: unknown[]) => {
+        if (baseLogger && typeof baseLogger !== 'boolean') {
+          const logger = baseLogger as Console | { trace?: (...args: unknown[]) => void; log?: (...args: unknown[]) => void };
+          logger.trace?.(...args) ?? logger.log?.(...args) ?? console.log(...args);
+        } else {
+          console.log(...args);
+        }
+      },
+      fatal: (...args: unknown[]) => {
+        if (baseLogger && typeof baseLogger !== 'boolean') {
+          const logger = baseLogger as { fatal?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
+          if ('fatal' in logger && logger.fatal) {
+            logger.fatal(...args);
+          } else if ('error' in logger && logger.error) {
+            logger.error(...args);
+          } else {
+            console.error(...args);
+          }
+        } else {
+          console.error(...args);
+        }
+      },
       child: () => this.logger,
     };
 
@@ -210,9 +258,11 @@ export class Server {
         // Execute onError hooks
         for (const errorHook of this.hooks.onError) {
           try {
-            await errorHook(req, reply, error as Error);
+            if (errorHook) {
+              await errorHook(req, reply, error as Error);
+            }
           } catch (hookError) {
-            this.logger.error('Error in onError hook:', hookError);
+            this.logger.error?.('Error in onError hook:', hookError);
           }
         }
 
@@ -242,16 +292,19 @@ export class Server {
       for (const hook of this.hooks.onSend) {
         try {
           // Check if it's an async hook (returns promise)
-          const result = hook(req, reply, payload, (err, newPayload) => {
+          const result = hook && hook(req, reply, payload as string, (err, newPayload) => {
             if (err) throw err;
-            payload = newPayload;
+            payload = newPayload as string;
           });
 
           if (result instanceof Promise) {
-            payload = await result || payload;
+            const resolvedPayload = await result;
+            if (resolvedPayload !== undefined && resolvedPayload !== null) {
+              payload = resolvedPayload as string;
+            }
           }
         } catch (error) {
-          this.logger.error('Error in onSend hook:', error);
+          this.logger.error?.('Error in onSend hook:', error);
         }
       }
     });
@@ -289,7 +342,7 @@ export class Server {
         return reply;
       },
       send: (payload: unknown) => {
-        c.status(statusCode);
+        c.status(statusCode as 200 | 201 | 400 | 401 | 403 | 404 | 500);
         Object.entries(responseHeaders).forEach(([key, value]) => {
           c.header(key, value);
         });

@@ -96,9 +96,7 @@ function getAllModels(config: Config) {
       models.push({
         name: `${BOLDCYAN}${provider.name}${RESET} → ${CYAN} ${model}`,
         value: `${provider.name},${model}`,
-        description: `\n${BOLDCYAN}Provider:${RESET} ${provider.name}`,
-        provider: provider.name,
-        model: model
+        description: `\n${BOLDCYAN}Provider:${RESET} ${provider.name}`
       });
     }
   }
