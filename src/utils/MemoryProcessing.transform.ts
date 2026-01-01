@@ -9,46 +9,7 @@
  */
 
 import type { MemoryCategory } from '../memory/types';
-
-interface ParsedRememberTag {
-  scope: 'global' | 'project';
-  category: string;
-  content: string;
-}
-
-/**
- * Parse <remember> tags with flexible attribute parsing
- */
-function parseRememberTags(content: string): ParsedRememberTag[] {
-  const results: ParsedRememberTag[] = [];
-  const tagRegex = /<remember\s+([^>]*)>([\s\S]*?)<\/remember>/gi;
-  let match;
-
-  while ((match = tagRegex.exec(content)) !== null) {
-    const attrs = match[1];
-    const innerContent = match[2];
-    const scopeMatch = attrs.match(/scope\s*=\s*["'](global|project)["']/i);
-    const categoryMatch = attrs.match(/category\s*=\s*["'](\w+)["']/i);
-
-    if (scopeMatch && categoryMatch) {
-      results.push({
-        scope: scopeMatch[1].toLowerCase() as 'global' | 'project',
-        category: categoryMatch[1].toLowerCase(),
-        content: innerContent.trim(),
-      });
-    }
-  }
-
-  return results;
-}
-
-/**
- * Strip <remember> tags from content
- */
-function stripRememberTags(content: string): string {
-  const stripped = content.replace(/<remember\s+[^>]*>[\s\S]*?<\/remember>/gi, '');
-  return stripped.replace(/\n{3,}/g, '\n\n');
-}
+import { parseRememberTags, stripRememberTags, type ParsedRememberTag } from './rememberTags';
 
 /**
  * Check if content contains a complete remember tag

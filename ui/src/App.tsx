@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Transformers } from "@/components/Transformers";
@@ -10,12 +9,7 @@ import { LogViewer } from "@/components/LogViewer";
 import { Button } from "@/components/ui/button";
 import { useConfig } from "@/components/ConfigProvider";
 import { api } from "@/lib/api";
-import { Settings, Languages, Save, RefreshCw, FileJson, CircleArrowUp, FileText } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Settings, Save, RefreshCw, FileJson, CircleArrowUp, FileText } from "lucide-react";
 import { Toast } from "@/components/ui/toast";
 import {
   Dialog,
@@ -28,7 +22,6 @@ import {
 import "@/styles/animations.css";
 
 function App() {
-  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { config, error } = useConfig();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -47,7 +40,7 @@ function App() {
   const saveConfig = async () => {
     // Handle case where config might be null or undefined
     if (!config) {
-      setToast({ message: t('app.config_missing'), type: 'error' });
+      setToast({ message: 'Configuration not loaded', type: 'error' });
       return;
     }
 
@@ -61,25 +54,25 @@ function App() {
       if (response && typeof response === 'object' && 'success' in response) {
         const apiResponse = response as { success: boolean; message?: string };
         if (apiResponse.success) {
-          setToast({ message: apiResponse.message || t('app.config_saved_success'), type: 'success' });
+          setToast({ message: apiResponse.message || 'Config saved successfully', type: 'success' });
         } else {
-          setToast({ message: apiResponse.message || t('app.config_saved_failed'), type: 'error' });
+          setToast({ message: apiResponse.message || 'Failed to save config', type: 'error' });
         }
       } else {
         // Default success toast
-        setToast({ message: t('app.config_saved_success'), type: 'success' });
+        setToast({ message: 'Config saved successfully', type: 'success' });
       }
     } catch (error) {
       console.error('Failed to save config:', error);
       // Handle error appropriately
-      setToast({ message: t('app.config_saved_failed') + ': ' + (error as Error).message, type: 'error' });
+      setToast({ message: 'Failed to save config' + ': ' + (error as Error).message, type: 'error' });
     }
   };
 
   const saveConfigAndRestart = async () => {
     // Handle case where config might be null or undefined
     if (!config) {
-      setToast({ message: t('app.config_missing'), type: 'error' });
+      setToast({ message: 'Configuration not loaded', type: 'error' });
       return;
     }
 
@@ -93,7 +86,7 @@ function App() {
         const apiResponse = response as { success: boolean; message?: string };
         if (!apiResponse.success) {
           saveSuccessful = false;
-          setToast({ message: apiResponse.message || t('app.config_saved_failed'), type: 'error' });
+          setToast({ message: apiResponse.message || 'Failed to save config', type: 'error' });
         }
       }
 
@@ -109,17 +102,17 @@ function App() {
         if (response && typeof response === 'object' && 'success' in response) {
           const apiResponse = response as { success: boolean; message?: string };
           if (apiResponse.success) {
-            setToast({ message: apiResponse.message || t('app.config_saved_restart_success'), type: 'success' });
+            setToast({ message: apiResponse.message || 'Config saved and service restarted successfully', type: 'success' });
           }
         } else {
           // Default success toast
-          setToast({ message: t('app.config_saved_restart_success'), type: 'success' });
+          setToast({ message: 'Config saved and service restarted successfully', type: 'success' });
         }
       }
     } catch (error) {
       console.error('Failed to save config and restart:', error);
       // Handle error appropriately
-      setToast({ message: t('app.config_saved_restart_failed') + ': ' + (error as Error).message, type: 'error' });
+      setToast({ message: 'Failed to save config and restart service' + ': ' + (error as Error).message, type: 'error' });
     }
   };
 
@@ -149,19 +142,19 @@ function App() {
         }
       } else if (showDialog) {
         // Only show no updates toast when showDialog is true
-        setToast({ message: t('app.no_updates_available'), type: 'success' });
+        setToast({ message: 'No updates available', type: 'success' });
       }
 
       setHasCheckedUpdate(true);
     } catch (error) {
       console.error('Failed to check for updates:', error);
       if (showDialog) {
-        setToast({ message: t('app.update_check_failed') + ': ' + (error as Error).message, type: 'error' });
+        setToast({ message: 'Failed to check for updates' + ': ' + (error as Error).message, type: 'error' });
       }
     } finally {
       setIsCheckingUpdate(false);
     }
-  }, [hasCheckedUpdate, isNewVersionAvailable, t]);
+  }, [hasCheckedUpdate, isNewVersionAvailable]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -228,16 +221,16 @@ function App() {
       const result = await api.performUpdate();
 
       if (result.success) {
-        setToast({ message: t('app.update_successful'), type: 'success' });
+        setToast({ message: 'Update successful', type: 'success' });
         setIsNewVersionAvailable(false);
         setIsUpdateDialogOpen(false);
         setHasCheckedUpdate(false); // Reset check state so it can be checked again next time
       } else {
-        setToast({ message: t('app.update_failed') + ': ' + result.message, type: 'error' });
+        setToast({ message: 'Update failed' + ': ' + result.message, type: 'error' });
       }
     } catch (error) {
       console.error('Failed to perform update:', error);
-      setToast({ message: t('app.update_failed') + ': ' + (error as Error).message, type: 'error' });
+      setToast({ message: 'Update failed' + ': ' + (error as Error).message, type: 'error' });
     }
   };
 
@@ -270,7 +263,7 @@ function App() {
   return (
     <div className="h-screen bg-gray-50 font-sans">
       <header className="flex h-16 items-center justify-between border-b bg-white px-6">
-        <h1 className="text-xl font-semibold text-gray-800">{t('app.title')}</h1>
+        <h1 className="text-xl font-semibold text-gray-800">Claude Code Router</h1>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} className="transition-all-ease hover:scale-110">
             <Settings className="h-5 w-5" />
@@ -281,31 +274,6 @@ function App() {
           <Button variant="ghost" size="icon" onClick={() => setIsLogViewerOpen(true)} className="transition-all-ease hover:scale-110">
             <FileText className="h-5 w-5" />
           </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="transition-all-ease hover:scale-110">
-                <Languages className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-32 p-2">
-              <div className="space-y-1">
-                <Button
-                  variant={i18n.language.startsWith('en') ? 'default' : 'ghost'}
-                  className="w-full justify-start transition-all-ease hover:scale-[1.02]"
-                  onClick={() => i18n.changeLanguage('en')}
-                >
-                  English
-                </Button>
-                <Button
-                  variant={i18n.language.startsWith('zh') ? 'default' : 'ghost'}
-                  className="w-full justify-start transition-all-ease hover:scale-[1.02]"
-                  onClick={() => i18n.changeLanguage('zh')}
-                >
-                  Chinese
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
           {/* Update version button */}
           <Button
             variant="ghost"
@@ -328,11 +296,11 @@ function App() {
           </Button>
           <Button onClick={saveConfig} variant="outline" className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]">
             <Save className="mr-2 h-4 w-4" />
-            {t('app.save')}
+            Save
           </Button>
           <Button onClick={saveConfigAndRestart} className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]">
             <RefreshCw className="mr-2 h-4 w-4" />
-            {t('app.save_and_restart')}
+            Save and Restart
           </Button>
         </div>
       </header>
@@ -365,7 +333,7 @@ function App() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {t('app.new_version_available')}
+              New Version Available
               {newVersionInfo && (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   v{newVersionInfo.version}
@@ -373,7 +341,7 @@ function App() {
               )}
             </DialogTitle>
             <DialogDescription>
-              {t('app.update_description')}
+              A new version is available. Please review the changelog and update to get the latest features and improvements.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-96 overflow-y-auto py-4">
@@ -383,7 +351,7 @@ function App() {
               </div>
             ) : (
               <div className="text-muted-foreground">
-                {t('app.no_changelog_available')}
+                No changelog available
               </div>
             )}
           </div>
@@ -392,10 +360,10 @@ function App() {
               variant="outline"
               onClick={() => setIsUpdateDialogOpen(false)}
             >
-              {t('app.later')}
+              Later
             </Button>
             <Button onClick={performUpdate}>
-              {t('app.update_now')}
+              Update Now
             </Button>
           </DialogFooter>
         </DialogContent>

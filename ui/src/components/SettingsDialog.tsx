@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +21,6 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
-  const { t } = useTranslation();
   const { config, setConfig } = useConfig();
   const [isStatusLineConfigOpen, setIsStatusLineConfigOpen] = useState(false);
 
@@ -61,7 +59,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
     <Dialog open={isOpen} onOpenChange={onOpenChange} >
       <DialogContent data-testid="settings-dialog" className="max-h-[80vh] flex flex-col p-0">
         <DialogHeader className="p-4 pb-0">
-          <DialogTitle>{t("toplevel.title")}</DialogTitle>
+          <DialogTitle>General Settings</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 p-4 px-8 overflow-y-auto flex-1">
           <div className="flex items-center space-x-2">
@@ -74,7 +72,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="log"
               className="transition-all-ease hover:scale-[1.02] cursor-pointer"
             >
-              {t("toplevel.log")}
+              Enable Logging
             </Label>
           </div>
           {/* StatusLine Configuration */}
@@ -90,7 +88,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
                   htmlFor="statusline"
                   className="transition-all-ease hover:scale-[1.02] cursor-pointer"
                 >
-                  {t("statusline.title")}
+                  Status Line Configuration
                 </Label>
               </div>
               <Button
@@ -100,12 +98,12 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
                 className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]"
                 data-testid="statusline-config-button"
               >
-                {t("app.settings")}
+                Settings
               </Button>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="log-level" className="transition-all-ease hover:scale-[1.01] cursor-pointer">{t("toplevel.log_level")}</Label>
+            <Label htmlFor="log-level" className="transition-all-ease hover:scale-[1.01] cursor-pointer">Log Level</Label>
             <Combobox
               options={[
                 { label: "fatal", value: "fatal" },
@@ -124,7 +122,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="claude-path"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.claude_path")}
+              Claude Path
             </Label>
             <Input
               id="claude-path"
@@ -138,7 +136,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="host"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.host")}
+              Host
             </Label>
             <Input
               id="host"
@@ -152,7 +150,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="port"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.port")}
+              Port
             </Label>
             <Input
               id="port"
@@ -169,7 +167,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="timeout"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.timeout")}
+              API Timeout (ms)
             </Label>
             <Input
               id="timeout"
@@ -185,7 +183,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="proxy-url"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.proxy_url")}
+              Proxy URL
             </Label>
             <Input
               id="proxy-url"
@@ -202,7 +200,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="apikey"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.apikey")}
+              API Key
             </Label>
             <Input
               id="apikey"
@@ -217,13 +215,13 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
               htmlFor="custom-router-path"
               className="transition-all-ease hover:scale-[1.01] cursor-pointer"
             >
-              {t("toplevel.custom_router_path")}
+              Custom Router Script Path
             </Label>
             <Input
               id="custom-router-path"
               value={config.CUSTOM_ROUTER_PATH || ""}
               onChange={(e) => setConfig({ ...config, CUSTOM_ROUTER_PATH: e.target.value })}
-              placeholder={t("toplevel.custom_router_path_placeholder")}
+              placeholder="Enter absolute path to custom router script file"
               className="transition-all-ease focus:scale-[1.01]"
             />
           </div>
@@ -233,7 +231,7 @@ export function SettingsDialog({ isOpen, onOpenChange }: SettingsDialogProps) {
             onClick={() => onOpenChange(false)}
             className="transition-all-ease hover:scale-[1.02] active:scale-[0.98]"
           >
-            {t("app.save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

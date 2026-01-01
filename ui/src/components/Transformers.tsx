@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 
 export function Transformers() {
-  const { t } = useTranslation();
   const { config, setConfig } = useConfig();
   const [editingTransformerIndex, setEditingTransformerIndex] = useState<number | null>(null);
   const [deletingTransformerIndex, setDeletingTransformerIndex] = useState<number | null>(null);
@@ -28,7 +26,7 @@ export function Transformers() {
     return (
       <Card className="flex h-full flex-col rounded-lg border shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b p-4">
-          <CardTitle className="text-lg">{t("transformers.title")}</CardTitle>
+          <CardTitle className="text-lg">Custom Transformers</CardTitle>
         </CardHeader>
         <CardContent className="flex-grow flex items-center justify-center p-4">
           <div className="text-gray-500">Loading transformers configuration...</div>
@@ -103,8 +101,8 @@ export function Transformers() {
   return (
     <Card className="flex h-full flex-col rounded-lg border shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between border-b p-4">
-        <CardTitle className="text-lg">{t("transformers.title")} <span className="text-sm font-normal text-gray-500">({validTransformers.length})</span></CardTitle>
-        <Button onClick={handleAddTransformer}>{t("transformers.add")}</Button>
+        <CardTitle className="text-lg">Custom Transformers <span className="text-sm font-normal text-gray-500">({validTransformers.length})</span></CardTitle>
+        <Button onClick={handleAddTransformer}>Add Custom Transformer</Button>
       </CardHeader>
       <CardContent className="flex-grow overflow-y-auto p-4">
         <TransformerList
@@ -118,23 +116,23 @@ export function Transformers() {
       <Dialog open={editingTransformerIndex !== null} onOpenChange={handleCancelTransformer}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("transformers.edit")}</DialogTitle>
+            <DialogTitle>Edit Custom Transformer</DialogTitle>
           </DialogHeader>
           {editingTransformer && editingTransformerIndex !== null && (
             <div className="space-y-4 py-4 px-6 max-h-96 overflow-y-auto">
               <div className="space-y-2">
-                <Label htmlFor="transformer-path">{t("transformers.path")}</Label>
-                <Input 
-                  id="transformer-path" 
-                  value={editingTransformer.path || ''} 
-                  onChange={(e) => handleTransformerChange(editingTransformerIndex, "path", e.target.value)} 
+                <Label htmlFor="transformer-path">Path</Label>
+                <Input
+                  id="transformer-path"
+                  value={editingTransformer.path || ''}
+                  onChange={(e) => handleTransformerChange(editingTransformerIndex, "path", e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>{t("transformers.parameters")}</Label>
-                  <Button 
-                    variant="outline" 
+                  <Label>Parameters</Label>
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       const parameters = editingTransformer.options || {};
@@ -156,8 +154,8 @@ export function Transformers() {
                 </div>
                 {Object.entries(editingTransformer.options || {}).map(([key, value]) => (
                   <div key={key} className="flex items-center gap-2">
-                    <Input 
-                      value={key} 
+                    <Input
+                      value={key}
                       onChange={(e) => {
                         const parameters = editingTransformer.options || {};
                         const newParameters = { ...parameters };
@@ -175,8 +173,8 @@ export function Transformers() {
                       }}
                       className="flex-1"
                     />
-                    <Input 
-                      value={value} 
+                    <Input
+                      value={value}
                       onChange={(e) => {
                         if (editingTransformerIndex !== null) {
                           handleTransformerChange(editingTransformerIndex, "parameters", e.target.value, key);
@@ -184,7 +182,7 @@ export function Transformers() {
                       }}
                       className="flex-1"
                     />
-                    <Button 
+                    <Button
                       variant="outline"
                       size="icon"
                       onClick={() => {
@@ -210,8 +208,8 @@ export function Transformers() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={handleCancelTransformer}>{t("app.cancel")}</Button>
-            <Button onClick={handleSaveTransformer}>{t("app.save")}</Button>
+            <Button variant="outline" onClick={handleCancelTransformer}>Cancel</Button>
+            <Button onClick={handleSaveTransformer}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -220,14 +218,14 @@ export function Transformers() {
       <Dialog open={deletingTransformerIndex !== null} onOpenChange={() => setDeletingTransformerIndex(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("transformers.delete")}</DialogTitle>
+            <DialogTitle>Delete Custom Transformer</DialogTitle>
             <DialogDescription>
-              {t("transformers.delete_transformer_confirm")}
+              Are you sure you want to delete this custom transformer?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingTransformerIndex(null)}>{t("app.cancel")}</Button>
-            <Button variant="destructive" onClick={() => deletingTransformerIndex !== null && handleRemoveTransformer(deletingTransformerIndex)}>{t("app.delete")}</Button>
+            <Button variant="outline" onClick={() => setDeletingTransformerIndex(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deletingTransformerIndex !== null && handleRemoveTransformer(deletingTransformerIndex)}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

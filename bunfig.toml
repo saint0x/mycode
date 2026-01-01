@@ -1,3 +1,6 @@
+# Preload OpenTUI SolidJS plugin for proper JSX transformation
+preload = ["@opentui/solid/bun-plugin"]
+
 [test]
 # Fail fast on first error
 bail = true

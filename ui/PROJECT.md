@@ -16,8 +16,8 @@ No API implementation needed, but you need to mock data based on the config.exam
 ## Code Guidelines
 Before using any library, you need to use websearch tool to find the latest documentation, do not use your knowledge base content, even if it's knowledge you think is obvious and certain.
 
-## Multilingual Design
-Project needs to support both English and Chinese
-
 ## Build and Release
 Finally need to build a single HTML file, with all js and css inlined. The build output should only contain one html file.
+
+## Language
+The UI is English-only with all text hardcoded in components for simplicity and performance.

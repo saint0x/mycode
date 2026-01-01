@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +23,6 @@ import type { Provider } from "@/types";
 interface ProviderType extends Provider {}
 
 export function Providers() {
-  const { t } = useTranslation();
   const { config, setConfig } = useConfig();
   const [editingProviderIndex, setEditingProviderIndex] = useState<number | null>(null);
   const [deletingProviderIndex, setDeletingProviderIndex] = useState<number | null>(null);
@@ -78,7 +76,7 @@ export function Providers() {
     return (
       <Card className="flex h-full flex-col rounded-lg border shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b p-4">
-          <CardTitle className="text-lg">{t("providers.title")}</CardTitle>
+          <CardTitle className="text-lg">Providers</CardTitle>
         </CardHeader>
         <CardContent className="flex-grow flex items-center justify-center p-4">
           <div className="text-gray-500">Loading providers configuration...</div>
@@ -126,7 +124,7 @@ export function Providers() {
     
     // Validate name
     if (!editingProviderData.name || editingProviderData.name.trim() === '') {
-      setNameError(t("providers.name_required"));
+      setNameError("Provider name is required");
       return;
     }
     
@@ -141,13 +139,13 @@ export function Providers() {
     });
     
     if (isDuplicate) {
-      setNameError(t("providers.name_duplicate"));
+      setNameError("Provider name already exists");
       return;
     }
     
     // Validate API key
     if (!editingProviderData.api_key || editingProviderData.api_key.trim() === '') {
-      setApiKeyError(t("providers.api_key_required"));
+      setApiKeyError("API key is required");
       return;
     }
     
@@ -522,14 +520,14 @@ export function Providers() {
     <Card className="flex h-full flex-col rounded-lg border shadow-sm">
       <CardHeader className="flex flex-col border-b p-4 gap-3">
         <div className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">{t("providers.title")} <span className="text-sm font-normal text-gray-500">({filteredProviders.length}/{validProviders.length})</span></CardTitle>
-          <Button onClick={handleAddProvider}>{t("providers.add")}</Button>
+          <CardTitle className="text-lg">Providers <span className="text-sm font-normal text-gray-500">({filteredProviders.length}/{validProviders.length})</span></CardTitle>
+          <Button onClick={handleAddProvider}>Add Provider</Button>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
-              placeholder={t("providers.search")}
+              placeholder="Search providers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"
@@ -562,24 +560,24 @@ export function Providers() {
       }}>
         <DialogContent className="max-h-[80vh] flex flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t("providers.edit")}</DialogTitle>
+            <DialogTitle>Edit Provider</DialogTitle>
           </DialogHeader>
           {editingProvider && editingProviderIndex !== null && (
             <div className="space-y-4 p-4 overflow-y-auto flex-grow">
               {providerTemplates.length > 0 && (
                 <div className="space-y-2">
-                  <Label>{t("providers.import_from_template")}</Label>
+                  <Label>Import from Template</Label>
                   <Combobox
                     options={providerTemplates.map(p => ({ label: p.name, value: JSON.stringify(p) }))}
                     value=""
                     onChange={handleTemplateImport}
-                    placeholder={t("providers.select_template")}
-                    emptyPlaceholder={t("providers.no_templates_found")}
+                    placeholder="Select a template..."
+                    emptyPlaceholder="No templates found"
                   />
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="name">{t("providers.name")}</Label>
+                <Label htmlFor="name">Provider Name</Label>
                 <Input 
                   id="name" 
                   value={editingProvider.name || ''} 
@@ -597,11 +595,11 @@ export function Providers() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="api_base_url">{t("providers.api_base_url")}</Label>
+                <Label htmlFor="api_base_url">API Base URL</Label>
                 <Input id="api_base_url" value={editingProvider.api_base_url || ''} onChange={(e) => handleProviderChange(editingProviderIndex, 'api_base_url', e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="api_key">{t("providers.api_key")}</Label>
+                <Label htmlFor="api_key">API Key</Label>
                 <div className="relative">
                   <Input 
                     id="api_key" 
@@ -635,7 +633,7 @@ export function Providers() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="models">{t("providers.models")}</Label>
+                <Label htmlFor="models">Models</Label>
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <div className="flex-1">
@@ -652,12 +650,12 @@ export function Providers() {
                               handleAddModel(editingProviderIndex, value);
                             }
                           }}
-                          inputPlaceholder={t("providers.models_placeholder")}
+                          inputPlaceholder="Enter model name..."
                         />
                       ) : (
-                        <Input 
-                          id="models" 
-                          placeholder={t("providers.models_placeholder")} 
+                        <Input
+                          id="models"
+                          placeholder="Enter model name..."
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.currentTarget.value.trim() && editingProviderIndex !== null) {
                               handleAddModel(editingProviderIndex, e.currentTarget.value);
@@ -688,14 +686,14 @@ export function Providers() {
                         }
                       }}
                     >
-                      {t("providers.add_model")}
+                      Add Model
                     </Button>
                     {/* <Button 
                       onClick={() => editingProvider && fetchAvailableModels(editingProvider)}
                       disabled={isFetchingModels}
                       variant="outline"
                     >
-                      {isFetchingModels ? t("providers.fetching_models") : t("providers.fetch_available_models")}
+                      {isFetchingModels ? "Fetching models..." : "Fetch Available Models"}
                     </Button> */}
                   </div>
                   <div className="flex flex-wrap gap-2 pt-2">
@@ -717,7 +715,7 @@ export function Providers() {
               
               {/* Provider Transformer Selection */}
               <div className="space-y-2">
-                <Label>{t("providers.provider_transformer")}</Label>
+                <Label>Provider Transformer</Label>
                 
                 {/* Add new transformer */}
                 <div className="flex gap-2">
@@ -732,15 +730,15 @@ export function Providers() {
                         handleProviderTransformerChange(editingProviderIndex, value);
                       }
                     }}
-                    placeholder={t("providers.select_transformer")}
-                    emptyPlaceholder={t("providers.no_transformers")}
+                    placeholder="Select a transformer..."
+                    emptyPlaceholder="No transformers available"
                   />
                 </div>
                 
                 {/* Display existing transformers */}
                 {editingProvider.transformer?.use && editingProvider.transformer.use.length > 0 && (
                   <div className="space-y-2 mt-2">
-                    <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
+                    <div className="text-sm font-medium text-gray-700">Selected Transformers</div>
                     {editingProvider.transformer.use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
                       <div key={transformerIndex} className="border rounded-md p-3">
                         <div className="flex gap-2 items-center mb-2">
@@ -762,11 +760,11 @@ export function Providers() {
                         
                         {/* Transformer-specific Parameters */}
                         <div className="mt-2 pl-4 border-l-2 border-gray-200">
-                          <Label className="text-sm">{t("providers.transformer_parameters")}</Label>
+                          <Label className="text-sm">Transformer Parameters</Label>
                           <div className="space-y-2 mt-1">
                             <div className="flex gap-2">
-                              <Input 
-                                placeholder={t("providers.parameter_name")}
+                              <Input
+                                placeholder="Parameter name"
                                 value={providerParamInputs[`provider-${editingProviderIndex}-transformer-${transformerIndex}`]?.name || ""}
                                 onChange={(e) => {
                                   const key = `provider-${editingProviderIndex}-transformer-${transformerIndex}`;
@@ -779,8 +777,8 @@ export function Providers() {
                                   }));
                                 }}
                               />
-                              <Input 
-                                placeholder={t("providers.parameter_value")}
+                              <Input
+                                placeholder="Parameter value"
                                 value={providerParamInputs[`provider-${editingProviderIndex}-transformer-${transformerIndex}`]?.value || ""}
                                 onChange={(e) => {
                                   const key = `provider-${editingProviderIndex}-transformer-${transformerIndex}`;
@@ -866,7 +864,7 @@ export function Providers() {
               {/* Model-specific Transformers */}
               {editingProvider.models && editingProvider.models.length > 0 && (
                 <div className="space-y-2">
-                  <Label>{t("providers.model_transformers")}</Label>
+                  <Label>Model Transformers</Label>
                   <div className="space-y-3">
                     {(editingProvider.models || []).map((model: string, modelIndex: number) => (
                       <div key={modelIndex} className="border rounded-md p-3">
@@ -885,8 +883,8 @@ export function Providers() {
                                   handleModelTransformerChange(editingProviderIndex, model, value);
                                 }
                               }}
-                              placeholder={t("providers.select_transformer")}
-                              emptyPlaceholder={t("providers.no_transformers")}
+                              placeholder="Select a transformer..."
+                              emptyPlaceholder="No transformers available"
                             />
                           </div>
                         </div>
@@ -894,7 +892,7 @@ export function Providers() {
                         {/* Display existing transformers */}
                         {editingProvider.transformer?.[model]?.use && editingProvider.transformer[model].use.length > 0 && (
                           <div className="space-y-2 mt-2">
-                            <div className="text-sm font-medium text-gray-700">{t("providers.selected_transformers")}</div>
+                            <div className="text-sm font-medium text-gray-700">Selected Transformers</div>
                             {editingProvider.transformer[model].use.map((transformer: string | (string | Record<string, unknown> | { max_tokens: number })[], transformerIndex: number) => (
                               <div key={transformerIndex} className="border rounded-md p-3">
                                 <div className="flex gap-2 items-center mb-2">
@@ -916,11 +914,11 @@ export function Providers() {
                                 
                                 {/* Transformer-specific Parameters */}
                                 <div className="mt-2 pl-4 border-l-2 border-gray-200">
-                                  <Label className="text-sm">{t("providers.transformer_parameters")}</Label>
+                                  <Label className="text-sm">Transformer Parameters</Label>
                                   <div className="space-y-2 mt-1">
                                     <div className="flex gap-2">
-                                      <Input 
-                                        placeholder={t("providers.parameter_name")}
+                                      <Input
+                                        placeholder="Parameter name"
                                         value={modelParamInputs[`model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`]?.name || ""}
                                         onChange={(e) => {
                                           const key = `model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`;
@@ -933,8 +931,8 @@ export function Providers() {
                                           }));
                                         }}
                                       />
-                                      <Input 
-                                        placeholder={t("providers.parameter_value")}
+                                      <Input
+                                        placeholder="Parameter value"
                                         value={modelParamInputs[`model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`]?.value || ""}
                                         onChange={(e) => {
                                           const key = `model-${editingProviderIndex}-${model}-transformer-${transformerIndex}`;
@@ -1031,9 +1029,9 @@ export function Providers() {
                 disabled={isTestingConnectivity || !editingProvider}
               >
                 <Wifi className="mr-2 h-4 w-4" />
-                {isTestingConnectivity ? t("providers.testing") : t("providers.test_connectivity")}
+                {isTestingConnectivity ? "Testing..." : "Test Connectivity"}
               </Button> */}
-              <Button onClick={handleSaveProvider}>{t("app.save")}</Button>
+              <Button onClick={handleSaveProvider}>Save</Button>
             </div>
           </div>
         </DialogContent>
@@ -1043,14 +1041,14 @@ export function Providers() {
       <Dialog open={deletingProviderIndex !== null} onOpenChange={() => setDeletingProviderIndex(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("providers.delete")}</DialogTitle>
+            <DialogTitle>Delete Provider</DialogTitle>
             <DialogDescription>
-              {t("providers.delete_provider_confirm")}
+              Are you sure you want to delete this provider?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingProviderIndex(null)}>{t("providers.cancel")}</Button>
-            <Button variant="destructive" onClick={() => deletingProviderIndex !== null && handleRemoveProvider(deletingProviderIndex)}>{t("providers.delete")}</Button>
+            <Button variant="outline" onClick={() => setDeletingProviderIndex(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deletingProviderIndex !== null && handleRemoveProvider(deletingProviderIndex)}>Delete Provider</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

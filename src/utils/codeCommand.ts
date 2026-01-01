@@ -172,9 +172,9 @@ export async function executeCodeCommand(args: string[] = []) {
     process.exit(1);
   });
 
-  claudeProcess.on("close", (code) => {
+  claudeProcess.on("close", async (code) => {
     decrementReferenceCount();
-    closeService();
+    await closeService();
     process.exit(code || 0);
   });
 }

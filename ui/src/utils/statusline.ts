@@ -18,10 +18,10 @@ export function validateStatusLineConfig(config: unknown): ValidationResult {
 
 
 /**
- * Format error message (supports internationalization) - no longer used
+ * Format error message - no longer used
  */
-export function formatValidationError(error: unknown, t: (key: string, options?: Record<string, unknown>) => string): string {
-  return t("statusline.validation.unknown_error");
+export function formatValidationError(error: unknown): string {
+  return "Unknown validation error";
 }
 
 /**

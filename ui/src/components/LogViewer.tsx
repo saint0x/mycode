@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
-import { useTranslation } from 'react-i18next';
 import { X, RefreshCw, Download, Trash2, ArrowLeft, File, Layers, Bug } from 'lucide-react';
 
 interface LogViewerProps {
@@ -51,7 +50,6 @@ interface GroupedLogsResponse {
 }
 
 export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const [logs, setLogs] = useState<string[]>([]);
   const [logFiles, setLogFiles] = useState<LogFile[]>([]);
@@ -175,7 +173,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
           } else if (type === 'error') {
             console.error('Worker error:', error);
             if (showToast) {
-              showToast(t('log_viewer.worker_error') + ': ' + error, 'error');
+              showToast('Worker processing error' + ': ' + error, 'error');
             }
           }
         };
@@ -184,13 +182,13 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
         workerRef.current.onerror = (error) => {
           console.error('Worker error:', error);
           if (showToast) {
-            showToast(t('log_viewer.worker_init_failed'), 'error');
+            showToast('Failed to initialize log processing worker', 'error');
           }
         };
       } catch (error) {
         console.error('Failed to create worker:', error);
         if (showToast) {
-          showToast(t('log_viewer.worker_init_failed'), 'error');
+          showToast('Failed to initialize log processing worker', 'error');
         }
       }
     }
@@ -202,7 +200,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
         workerRef.current = null;
       }
     };
-  }, [showToast, t]);
+  }, [showToast]);
 
   useEffect(() => {
     if (autoRefresh && open && selectedFile) {
@@ -258,13 +256,13 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
       } else {
         setLogFiles([]);
         if (showToast) {
-          showToast(t('log_viewer.no_log_files_available'), 'warning');
+          showToast('No log files available', 'warning');
         }
       }
     } catch (error) {
       console.error('Failed to load log files:', error);
       if (showToast) {
-        showToast(t('log_viewer.load_files_failed') + ': ' + (error as Error).message, 'error');
+        showToast('Failed to load log files' + ': ' + (error as Error).message, 'error');
       }
     } finally {
       setIsLoading(false);
@@ -307,13 +305,13 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
         setLogs([]);
         setGroupedLogs(null);
         if (showToast) {
-          showToast(t('log_viewer.no_logs_available'), 'warning');
+          showToast('No logs available in this file', 'warning');
         }
       }
     } catch (error) {
       console.error('Failed to load logs:', error);
       if (showToast) {
-        showToast(t('log_viewer.load_failed') + ': ' + (error as Error).message, 'error');
+        showToast('Failed to load logs' + ': ' + (error as Error).message, 'error');
       }
     } finally {
       setIsLoading(false);
@@ -327,12 +325,12 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
       await api.clearLogs(selectedFile.path);
       setLogs([]);
       if (showToast) {
-        showToast(t('log_viewer.logs_cleared'), 'success');
+        showToast('Logs cleared successfully', 'success');
       }
     } catch (error) {
       console.error('Failed to clear logs:', error);
       if (showToast) {
-        showToast(t('log_viewer.clear_failed') + ': ' + (error as Error).message, 'error');
+        showToast('Failed to clear logs' + ': ' + (error as Error).message, 'error');
       }
     }
   };
@@ -408,7 +406,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
     URL.revokeObjectURL(url);
 
     if (showToast) {
-      showToast(t('log_viewer.logs_downloaded'), 'success');
+      showToast('Logs downloaded successfully', 'success');
     }
   };
 
@@ -436,7 +434,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
     const breadcrumbs: BreadcrumbItem[] = [
       {
         id: 'root',
-        label: t('log_viewer.title'),
+        label: 'All Logs',
         onClick: () => {
           setSelectedFile(null);
           setAutoRefresh(false);
@@ -469,7 +467,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
     if (selectedReqId) {
       breadcrumbs.push({
         id: 'req',
-        label: `${t('log_viewer.request')} ${selectedReqId}`,
+        label: `Request ${selectedReqId}`,
         onClick: () => {
           // No action when clicking current level
         }
@@ -721,7 +719,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                 onClick={getBackAction()!}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                {t('log_viewer.back')}
+                Back
               </Button>
             )}
 
@@ -758,7 +756,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                   className={groupByReqId ? 'bg-blue-100 text-blue-700' : ''}
                 >
                   <Layers className="h-4 w-4 mr-2" />
-                  {groupByReqId ? t('log_viewer.grouped_on') : t('log_viewer.group_by_req_id')}
+                  {groupByReqId ? 'Grouped View On' : 'Group by Request ID'}
                 </Button>
                 <Button
                   variant="ghost"
@@ -767,7 +765,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                   className={autoRefresh ? 'bg-blue-100 text-blue-700' : ''}
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-spin' : ''}`} />
-                  {autoRefresh ? t('log_viewer.auto_refresh_on') : t('log_viewer.auto_refresh_off')}
+                  {autoRefresh ? 'Auto Refresh On' : 'Auto Refresh Off'}
                 </Button>
                 <Button
                   variant="outline"
@@ -776,7 +774,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                   disabled={logs.length === 0}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  {t('log_viewer.download')}
+                  Download
                 </Button>
                 <Button
                   variant="outline"
@@ -785,7 +783,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                   disabled={logs.length === 0}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  {t('log_viewer.clear')}
+                  Clear
                 </Button>
               </>
             )}
@@ -795,7 +793,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
               onClick={() => onOpenChange(false)}
             >
               <X className="h-4 w-4 mr-2" />
-              {t('log_viewer.close')}
+              Close
             </Button>
           </div>
         </div>
@@ -811,10 +809,10 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                 // Display log group list
                 <div className="flex flex-col h-full p-6">
                   <div className="mb-4 flex-shrink-0">
-                    <h3 className="text-lg font-medium mb-2">{t('log_viewer.request_groups')}</h3>
+                    <h3 className="text-lg font-medium mb-2">Request Groups</h3>
                     <p className="text-sm text-gray-600">
-                      {t('log_viewer.total_requests')}: {groupedLogs.summary.totalRequests} |
-                      {t('log_viewer.total_logs')}: {groupedLogs.summary.totalLogs}
+                      Total Requests: {groupedLogs.summary.totalRequests} |
+                      Total Logs: {groupedLogs.summary.totalLogs}
                     </p>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
@@ -835,12 +833,12 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
                             )}
                           </div>
                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            {request.logCount} {t('log_viewer.logs')}
+                            {request.logCount} logs
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 space-y-1">
-                          <div>{t('log_viewer.first_log')}: {formatDate(request.firstLog)}</div>
-                          <div>{t('log_viewer.last_log')}: {formatDate(request.lastLog)}</div>
+                          <div>First Log: {formatDate(request.firstLog)}</div>
+                          <div>Last Log: {formatDate(request.lastLog)}</div>
                         </div>
                       </div>
                     ))}
@@ -873,11 +871,11 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
             </>
           ) : (
             <div className="p-6">
-              <h3 className="text-lg font-medium mb-4">{t('log_viewer.select_file')}</h3>
+              <h3 className="text-lg font-medium mb-4">Select Log File</h3>
               {logFiles.length === 0 ? (
                 <div className="text-gray-500 text-center py-8">
                   <File className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>{t('log_viewer.no_log_files_available')}</p>
+                  <p>No log files available</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

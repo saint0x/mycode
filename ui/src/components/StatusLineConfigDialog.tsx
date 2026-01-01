@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -109,10 +108,9 @@ interface IconSearchInputProps {
   value: string;
   onChange: (value: string) => void;
   fontFamily: string;
-  t: (key: string) => string;
 }
 
-const IconSearchInput = React.memo(({ value, onChange, fontFamily, t }: IconSearchInputProps) => {
+const IconSearchInput = React.memo(({ value, onChange, fontFamily }: IconSearchInputProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(value);
   const [icons, setIcons] = useState<IconData[]>([]);
@@ -249,7 +247,7 @@ const IconSearchInput = React.memo(({ value, onChange, fontFamily, t }: IconSear
           onFocus={handleFocus}
           onBlur={handleBlur}
           onPaste={handlePaste}
-          placeholder={t("statusline.icon_placeholder")}
+          placeholder="Search icons..."
           style={{ fontFamily: fontFamily + ', monospace' }}
           className="text-lg pr-2"
         />
@@ -285,7 +283,7 @@ const IconSearchInput = React.memo(({ value, onChange, fontFamily, t }: IconSear
                         <path d="m21 21-4.35-4.35" />
                       </svg>
                       <div className="text-sm">
-                        {searchTerm ? `${t("statusline.no_icons_found")} "${searchTerm}"` : t("statusline.no_icons_available")}
+                        {searchTerm ? `No icons found matching "${searchTerm}"` : "No icons available"}
                       </div>
                     </div>
                   )}
@@ -414,7 +412,6 @@ export function StatusLineConfigDialog({
   isOpen,
   onOpenChange,
 }: StatusLineConfigDialogProps) {
-  const { t } = useTranslation();
   const { config, setConfig } = useConfig();
 
   const [statusLineConfig, setStatusLineConfig] = useState<StatusLineConfig>(
@@ -560,7 +557,7 @@ export function StatusLineConfigDialog({
   // Module type options
   const MODULE_TYPES_OPTIONS = MODULE_TYPES.map((item) => ({
     ...item,
-    label: t(`statusline.${item.label}`),
+    label: item.label,
   }));
 
   const handleThemeChange = (value: string) => {
@@ -598,7 +595,7 @@ export function StatusLineConfigDialog({
     if (!validationResult.isValid) {
       // Format error messages
       const errorMessages = validationResult.errors.map((error) =>
-        formatValidationError(error, t)
+        formatValidationError(error)
       );
       setValidationErrors(errorMessages);
       return;
@@ -780,7 +777,7 @@ export function StatusLineConfigDialog({
               <path d="M14 3v4a2 2 0 0 0 2 2h4" />
               <path d="M3 12h18" />
             </svg>
-            {t("statusline.title")}
+            Status Line Configuration
           </DialogTitle>
         </DialogHeader>
 
@@ -808,30 +805,30 @@ export function StatusLineConfigDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="theme-style" className="text-sm font-medium">
-                  {t("statusline.theme")}
+                  Theme
                 </Label>
                 <Combobox
                   options={[
-                    { label: t("statusline.theme_default"), value: "default" },
-                    { label: t("statusline.theme_powerline"), value: "powerline" },
+                    { label: "Default", value: "default" },
+                    { label: "Powerline", value: "powerline" },
                   ]}
                   value={statusLineConfig.currentStyle}
                   onChange={handleThemeChange}
                   data-testid="theme-selector"
-                  placeholder={t("statusline.theme_placeholder")}
+                  placeholder="Select theme..."
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="font-family" className="text-sm font-medium">
-                  {t("statusline.module_icon")}
+                  Module Icon Font
                 </Label>
                 <Combobox
                   options={NERD_FONTS}
                   value={fontFamily}
                   onChange={(value) => setFontFamily(value)}
                   data-testid="font-family-selector"
-                  placeholder={t("statusline.font_placeholder")}
+                  placeholder="Select font..."
                 />
               </div>
             </div>
@@ -841,7 +838,7 @@ export function StatusLineConfigDialog({
           <div className="grid grid-cols-5 gap-6 overflow-hidden flex-1">
             {/* Left side: Supported components */}
             <div className="border rounded-lg flex flex-col overflow-hidden col-span-1">
-              <h3 className="text-sm font-medium p-4 pb-0 mb-3">{t("statusline.components")}</h3>
+              <h3 className="text-sm font-medium p-4 pb-0 mb-3">Components</h3>
               <div className="space-y-2 overflow-y-auto px-4 pb-4 flex-1">
                 {MODULE_TYPES_OPTIONS.map((moduleType) => (
                   <div
@@ -860,7 +857,7 @@ export function StatusLineConfigDialog({
 
             {/* Middle: Preview area */}
             <div className="border rounded-lg p-4 flex flex-col col-span-3">
-              <h3 className="text-sm font-medium mb-3">{t("statusline.preview")}</h3>
+              <h3 className="text-sm font-medium mb-3">Preview</h3>
               <div
                 key={fontKey}
                 className={`rounded bg-black/90 text-white font-mono text-sm overflow-x-auto flex items-center border border-border p-3 py-5 shadow-inner overflow-hidden ${
@@ -1043,7 +1040,7 @@ export function StatusLineConfigDialog({
                       <path d="M8 12h8" />
                     </svg>
                     <span className="text-gray-500 text-sm">
-                      {t("statusline.drag_hint")}
+                      Drag and drop to reorder modules
                     </span>
                   </div>
                 )}
@@ -1052,14 +1049,14 @@ export function StatusLineConfigDialog({
 
             {/* Right side: Property configuration */}
             <div className="border rounded-lg flex flex-col overflow-hidden col-span-1">
-              <h3 className="text-sm font-medium p-4 pb-0 mb-3">{t("statusline.properties")}</h3>
+              <h3 className="text-sm font-medium p-4 pb-0 mb-3">Properties</h3>
               <div className="overflow-y-auto px-4 pb-4 flex-1">
                 {selectedModule && selectedModuleIndex !== null ? (
                   <div className="space-y-4">
 
                     <div className="space-y-2">
                       <Label htmlFor="module-icon">
-                        {t("statusline.module_icon")}
+                        Module Icon Font
                       </Label>
                       <IconSearchInput
                         key={fontKey}
@@ -1072,16 +1069,15 @@ export function StatusLineConfigDialog({
                           )
                         }
                         fontFamily={fontFamily}
-                        t={t}
                       />
                       <p className="text-xs text-muted-foreground">
-                        {t("statusline.icon_description")}
+                        Choose an icon for this module. Leave empty to display without an icon.
                       </p>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="module-text">
-                        {t("statusline.module_text")}
+                        Module Text
                       </Label>
                       <Input
                         id="module-text"
@@ -1093,10 +1089,10 @@ export function StatusLineConfigDialog({
                             e.target.value
                           )
                         }
-                        placeholder={t("statusline.text_placeholder")}
+                        placeholder="Enter text or use {{variable}}"
                       />
                       <div className="text-xs text-muted-foreground">
-                        <p>{t("statusline.module_text_description")}</p>
+                        <p>The text to display in the module. Use {`{{variableName}}`} for dynamic values (e.g., {`{{workDirName}}`}, {`{{branchName}}`})</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           <Badge
                             variant="secondary"
@@ -1133,7 +1129,7 @@ export function StatusLineConfigDialog({
                     </div>
 
                     <div className="space-y-2">
-                      <Label>{t("statusline.module_color")}</Label>
+                      <Label>Text Color</Label>
                       <ColorPicker
                         value={selectedModule.color || ""}
                         onChange={(value) =>
@@ -1145,12 +1141,12 @@ export function StatusLineConfigDialog({
                         }
                       />
                       <p className="text-xs text-muted-foreground">
-                        {t("statusline.module_color_description")}
+                        Choose the text color for this module
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>{t("statusline.module_background")}</Label>
+                      <Label>Background Color</Label>
                       <ColorPicker
                         value={selectedModule.background || ""}
                         onChange={(value) =>
@@ -1162,7 +1158,7 @@ export function StatusLineConfigDialog({
                         }
                       />
                       <p className="text-xs text-muted-foreground">
-                        {t("statusline.module_background_description")}
+                        Choose the background color for this module
                       </p>
                     </div>
 
@@ -1170,7 +1166,7 @@ export function StatusLineConfigDialog({
                     {selectedModule.type === "script" && (
                       <div className="space-y-2">
                         <Label htmlFor="module-script-path">
-                          {t("statusline.module_script_path")}
+                          Custom Script Path
                         </Label>
                         <Input
                           id="module-script-path"
@@ -1182,10 +1178,10 @@ export function StatusLineConfigDialog({
                               e.target.value
                             )
                           }
-                          placeholder={t("statusline.script_placeholder")}
+                          placeholder="Enter absolute path to script file"
                         />
                         <p className="text-xs text-muted-foreground">
-                          {t("statusline.module_script_path_description")}
+                          Provide the absolute path to a custom script file that returns the module's text content. The script will be executed and its output will be displayed.
                         </p>
                       </div>
                     )}
@@ -1196,13 +1192,13 @@ export function StatusLineConfigDialog({
                       size="sm"
                       onClick={deleteSelectedModule}
                     >
-                      {t("statusline.delete_module")}
+                      Delete Module
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full min-h-[200px]">
                     <p className="text-muted-foreground text-sm">
-                      {t("statusline.select_hint")}
+                      Select a module from the left panel to view and edit its properties
                     </p>
                   </div>
                 )}
@@ -1217,14 +1213,14 @@ export function StatusLineConfigDialog({
             onClick={() => onOpenChange(false)}
             className="transition-all hover:scale-105"
           >
-            {t("app.cancel")}
+            Cancel
           </Button>
           <Button
             onClick={handleSave}
             data-testid="save-statusline-config"
             className="transition-all hover:scale-105"
           >
-            {t("app.save")}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -31,6 +31,7 @@ Commands:
   statusline    Integrated statusline
   code          Execute claude command
   model         Interactive model selection and configuration
+  tui           Launch full-screen terminal UI
   activate      Output environment variables for shell integration
   migrate       Migrate config from legacy location
   ui            Open the web UI in browser
@@ -41,6 +42,7 @@ Example:
   mycode start
   mycode code "Write a Hello World"
   mc model
+  mc tui
   eval "$(mycode activate)"  # Set environment variables globally
   mc ui
 `;
@@ -122,6 +124,25 @@ async function main() {
     case "model":
       await runModelSelector();
       break;
+    case "tui":
+      // Run TUI in a separate Bun process with the SolidJS plugin loaded
+      const tuiArgs = process.argv.slice(3);
+      const tuiRunnerPath = join(__dirname, "..", "src", "tui", "run.ts");
+
+      const tuiProcess = spawn("bun", ["run", tuiRunnerPath, ...tuiArgs], {
+        stdio: "inherit",
+        cwd: process.cwd()
+      });
+
+      tuiProcess.on("exit", (code) => {
+        process.exit(code || 0);
+      });
+
+      // Wait for the process to complete
+      await new Promise((resolve) => {
+        tuiProcess.on("close", resolve);
+      });
+      break;
     case "activate":
     case "env":
       await activateCommand();
@@ -135,22 +156,10 @@ async function main() {
           stdio: "ignore",
         });
 
-        // let errorMessage = "";
-        // startProcess.stderr?.on("data", (data) => {
-        //   errorMessage += data.toString();
-        // });
-
         startProcess.on("error", (error) => {
           console.error("Failed to start service:", error.message);
           process.exit(1);
         });
-
-        // startProcess.on("close", (code) => {
-        //   if (code !== 0 && errorMessage) {
-        //     console.error("Failed to start service:", errorMessage.trim());
-        //     process.exit(1);
-        //   }
-        // });
 
         startProcess.unref();
 

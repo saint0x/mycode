@@ -50,10 +50,3 @@ export function stripRememberTags(content: string): string {
   // Clean up extra whitespace/newlines left behind
   return stripped.replace(/\n{3,}/g, '\n\n').trim();
 }
-
-/**
- * Check if content contains any remember tags
- */
-export function hasRememberTags(content: string): boolean {
-  return /<remember\s+[^>]*>[\s\S]*?<\/remember>/i.test(content);
-}

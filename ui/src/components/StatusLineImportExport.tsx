@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,6 @@ interface StatusLineImportExportProps {
 }
 
 export function StatusLineImportExport({ config, onImport, onShowToast }: StatusLineImportExportProps) {
-  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
 
@@ -23,7 +21,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
       const validationResult = validateStatusLineConfig(config);
 
       if (!validationResult.isValid) {
-        onShowToast(t("statusline.export_validation_failed"), 'error');
+        onShowToast("Configuration validation failed. Cannot export invalid configuration.", 'error');
         return;
       }
 
@@ -37,10 +35,10 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
       linkElement.setAttribute('download', exportFileDefaultName);
       linkElement.click();
 
-      onShowToast(t("statusline.export_success"), 'success');
+      onShowToast("Configuration exported successfully", 'success');
     } catch (error) {
       console.error("Export failed:", error);
-      onShowToast(t("statusline.export_failed"), 'error');
+      onShowToast("Failed to export configuration", 'error');
     }
   };
 
@@ -65,14 +63,14 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
           const errorMessages = validationResult.errors.map(error =>
             error.message
           ).join('; ');
-          throw new Error(`${t("statusline.invalid_config")}: ${errorMessages}`);
+          throw new Error(`Invalid configuration: ${errorMessages}`);
         }
 
         onImport(importedConfig);
-        onShowToast(t("statusline.import_success"), 'success');
+        onShowToast("Configuration imported successfully", 'success');
       } catch (error) {
         console.error("Import failed:", error);
-        onShowToast(t("statusline.import_failed") + (error instanceof Error ? `: ${error.message}` : ""), 'error');
+        onShowToast("Failed to import configuration" + (error instanceof Error ? `: ${error.message}` : ""), 'error');
       } finally {
         setIsImporting(false);
         // Reset file input so the same file can be selected again
@@ -83,7 +81,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
     };
 
     reader.onerror = () => {
-      onShowToast(t("statusline.import_failed"), 'error');
+      onShowToast("Failed to import configuration", 'error');
       setIsImporting(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -109,10 +107,10 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
       linkElement.setAttribute('download', templateFileName);
       linkElement.click();
 
-      onShowToast(t("statusline.template_download_success"), 'success');
+      onShowToast("Template downloaded successfully", 'success');
     } catch (error) {
       console.error("Template download failed:", error);
-      onShowToast(t("statusline.template_download_failed"), 'error');
+      onShowToast("Failed to download template", 'error');
     }
   };
 
@@ -129,10 +127,10 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
       linkElement.setAttribute('download', backupFileName);
       linkElement.click();
 
-      onShowToast(t("statusline.backup_success"), 'success');
+      onShowToast("Configuration backup created successfully", 'success');
     } catch (error) {
       console.error("Backup failed:", error);
-      onShowToast(t("statusline.backup_failed"), 'error');
+      onShowToast("Failed to create backup", 'error');
     }
   };
 
@@ -148,7 +146,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
         const restoredConfig = restoreConfig(content);
 
         if (!restoredConfig) {
-          throw new Error(t("statusline.invalid_backup_file"));
+          throw new Error("Invalid backup file format");
         }
 
         // Validate restored configuration
@@ -159,14 +157,14 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
           const errorMessages = validationResult.errors.map(error =>
             error.message
           ).join('; ');
-          throw new Error(`${t("statusline.invalid_config")}: ${errorMessages}`);
+          throw new Error(`Invalid configuration: ${errorMessages}`);
         }
 
         onImport(restoredConfig);
-        onShowToast(t("statusline.restore_success"), 'success');
+        onShowToast("Configuration restored successfully", 'success');
       } catch (error) {
         console.error("Restore failed:", error);
-        onShowToast(t("statusline.restore_failed") + (error instanceof Error ? `: ${error.message}` : ""), 'error');
+        onShowToast("Failed to restore configuration" + (error instanceof Error ? `: ${error.message}` : ""), 'error');
       } finally {
         // Reset file input
         if (fileInputRef.current) {
@@ -176,7 +174,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
     };
 
     reader.onerror = () => {
-      onShowToast(t("statusline.restore_failed"), 'error');
+      onShowToast("Failed to restore configuration", 'error');
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -196,7 +194,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          {t("statusline.import_export")}
+          Import / Export
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 px-4 pb-4">
@@ -212,7 +210,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
                 <polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              {t("statusline.export")}
+              Export
             </Button>
 
             <Button
@@ -226,7 +224,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
                 <polyline points="17 8 12 3 7 8"/>
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              {t("statusline.import")}
+              Import
             </Button>
           </div>
 
@@ -243,7 +241,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
                 <line x1="16" y1="17" x2="8" y2="17"/>
                 <polyline points="10 9 9 9 8 9"/>
               </svg>
-              {t("statusline.backup")}
+              Backup
             </Button>
 
             <Button
@@ -261,7 +259,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
                 <path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4M17 9l-5 5-5-5M12 12.8V2.5"/>
               </svg>
-              {t("statusline.restore")}
+              Restore
             </Button>
           </div>
 
@@ -277,7 +275,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
               <line x1="16" y1="17" x2="8" y2="17"/>
               <polyline points="10 9 9 9 8 9"/>
             </svg>
-            {t("statusline.download_template")}
+            Download Template
           </Button>
         </div>
 
@@ -298,7 +296,7 @@ export function StatusLineImportExport({ config, onImport, onShowToast }: Status
             </svg>
             <div>
               <p className="text-xs text-muted-foreground">
-                {t("statusline.import_export_help")}
+                Export: Download current configuration. Import: Load a previously saved configuration file. Backup: Create a timestamped backup. Restore: Load configuration from backup file. Download Template: Get a template configuration with default values.
               </p>
             </div>
           </div>

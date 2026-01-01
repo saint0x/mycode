@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useTranslation } from "react-i18next"
 import { HexColorPicker } from "react-colorful"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -32,7 +31,6 @@ export function ColorPicker({
   placeholder,
   showPreview = true
 }: ColorPickerProps) {
-  const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
   const [customColor, setCustomColor] = React.useState("")
 
@@ -80,7 +78,7 @@ export function ColorPicker({
                 />
               )}
               <span className="truncate flex-1">
-                {value || placeholder || t('color_picker.placeholder')}
+                {value || placeholder || 'Select color...'}
               </span>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m7 15 5 5 5-5"/>
@@ -93,14 +91,14 @@ export function ColorPicker({
           <div className="space-y-4">
             {/* Color picker title */}
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold">{t('color_picker.title')}</h4>
+              <h4 className="text-sm font-semibold">Color Picker</h4>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-6 px-2 text-xs"
                 onClick={() => handleColorChange("")}
               >
-                {t('color_picker.clear')}
+                Clear
               </Button>
             </div>
 
@@ -112,7 +110,7 @@ export function ColorPicker({
               />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">
-                  {value || t('color_picker.no_color_selected')}
+                  {value || 'No color selected'}
                 </div>
                 {value && value.startsWith("#") && (
                   <div className="text-xs text-muted-foreground font-mono">
@@ -133,7 +131,7 @@ export function ColorPicker({
 
             {/* Custom color input */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">{t('color_picker.custom_color')}</label>
+              <label className="text-sm font-medium">Custom Color</label>
               <div className="flex gap-2">
                 <Input
                   type="text"
@@ -152,11 +150,11 @@ export function ColorPicker({
                   }}
                   disabled={!customColor || !/^#[0-9A-F]{6}$/i.test(customColor)}
                 >
-                  {t('color_picker.apply')}
+                  Apply
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t('color_picker.hex_input_help')}
+                Enter hex color value (e.g.: #FF0000)
               </p>
             </div>
           </div>
