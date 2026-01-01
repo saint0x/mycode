@@ -725,7 +725,7 @@ export function LogViewer({ open, onOpenChange, showToast }: LogViewerProps) {
               </Button>
             )}
 
-            {/* 面包屑导航 */}
+            {/* Breadcrumb navigation */}
             <nav className="flex items-center space-x-1 text-sm">
               {getBreadcrumbs().map((breadcrumb, index) => (
                 <React.Fragment key={breadcrumb.id}>

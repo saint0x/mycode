@@ -789,7 +789,7 @@ export function StatusLineConfigDialog({
           <div className="px-6">
             <CustomAlert
               variant="destructive"
-              title="配置验证失败"
+              title="Configuration Validation Failed"
               description={
                 <ul className="list-disc pl-5 space-y-1">
                   {validationErrors.map((error, index) => (

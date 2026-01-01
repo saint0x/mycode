@@ -377,7 +377,7 @@ describe('Integration Tests', () => {
 
       const memoryService = getMemoryService();
 
-      const unicodeContent = '使用中文注释 • Emoji support 🎉 • Special symbols ™®©';
+      const unicodeContent = 'Unicode test content • Emoji support 🎉 • Special symbols ™®©';
       const memory = await memoryService.remember(unicodeContent, {
         scope: 'global',
         category: 'preference',

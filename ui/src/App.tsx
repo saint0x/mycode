@@ -301,7 +301,7 @@ function App() {
                   className="w-full justify-start transition-all-ease hover:scale-[1.02]"
                   onClick={() => i18n.changeLanguage('zh')}
                 >
-                  中文
+                  Chinese
                 </Button>
               </div>
             </PopoverContent>
