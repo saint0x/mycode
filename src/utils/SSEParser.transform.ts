@@ -1,16 +1,22 @@
-export class SSEParserTransform extends TransformStream<string, any> {
+interface SSEEvent {
+    event?: string;
+    data?: unknown;
+    id?: string;
+    retry?: number;
+}
+
+export class SSEParserTransform extends TransformStream<string, SSEEvent> {
     private buffer = '';
-    private currentEvent: Record<string, any> = {};
+    private currentEvent: SSEEvent = {};
 
     constructor() {
         super({
             transform: (chunk: string, controller) => {
-                const decoder = new TextDecoder();
-                const text = decoder.decode(chunk);
-                this.buffer += text;
+                // chunk is already a string
+                this.buffer += chunk;
                 const lines = this.buffer.split('\n');
 
-                // 保留最后一行（可能不完整）
+                // Keep the last line (may be incomplete)
                 this.buffer = lines.pop() || '';
 
                 for (const line of lines) {
@@ -21,14 +27,14 @@ export class SSEParserTransform extends TransformStream<string, any> {
                 }
             },
             flush: (controller) => {
-                // 处理缓冲区中剩余的内容
+                // Process remaining content in the buffer
                 if (this.buffer.trim()) {
-                    const events: any[] = [];
+                    const events: SSEEvent[] = [];
                     this.processLine(this.buffer.trim(), events);
                     events.forEach(event => controller.enqueue(event));
                 }
 
-                // 推送最后一个事件（如果有）
+                // Push the last event (if any)
                 if (Object.keys(this.currentEvent).length > 0) {
                     controller.enqueue(this.currentEvent);
                 }
@@ -36,7 +42,7 @@ export class SSEParserTransform extends TransformStream<string, any> {
         });
     }
 
-    private processLine(line: string, events?: any[]): any | null {
+    private processLine(line: string, events?: SSEEvent[]): SSEEvent | null {
         if (!line.trim()) {
             if (Object.keys(this.currentEvent).length > 0) {
                 const event = { ...this.currentEvent };

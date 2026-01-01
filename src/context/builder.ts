@@ -152,6 +152,7 @@ export class DynamicContextBuilder {
         `Failed to assemble system prompt: ${error instanceof Error ? error.message : String(error)}`,
         {
           code: ErrorCode.CONTEXT_BUILD_FAILED,
+          operation: 'assemble_system_prompt',
           phase: 'assembly',
           cause: error instanceof Error ? error : undefined,
           details: {

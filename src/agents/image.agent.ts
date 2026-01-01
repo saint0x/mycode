@@ -2,23 +2,41 @@ import { IAgent, ITool } from "./type";
 import { createHash } from "crypto";
 import * as LRU from "lru-cache";
 
+interface ImageSource {
+  type: string;
+  media_type?: string;
+  data?: string;
+  url?: string;
+}
+
 interface ImageCacheEntry {
-  source: any;
+  source: ImageSource;
   timestamp: number;
 }
 
+interface ContentItem {
+  type: string;
+  text?: string;
+  content?: ContentItem[] | string;
+  source?: ImageSource;
+}
+
+interface Message {
+  role: string;
+  content: string | ContentItem[];
+}
+
 class ImageCache {
-  private cache: any;
+  private cache: LRU.LRUCache<string, ImageCacheEntry>;
 
   constructor(maxSize = 100) {
-    const CacheClass: any = (LRU as any).LRUCache || (LRU as any);
-    this.cache = new CacheClass({
+    this.cache = new LRU.LRUCache<string, ImageCacheEntry>({
       max: maxSize,
       ttl: 5 * 60 * 1000, // 5 minutes
     });
   }
 
-  storeImage(id: string, source: any): void {
+  storeImage(id: string, source: ImageSource): void {
     if (this.hasImage(id)) return;
     this.cache.set(id, {
       source,
@@ -26,7 +44,7 @@ class ImageCache {
     });
   }
 
-  getImage(id: string): any {
+  getImage(id: string): ImageSource | null {
     const entry = this.cache.get(id);
     return entry ? entry.source : null;
   }
@@ -71,12 +89,12 @@ export class ImageAgent implements IAgent {
       )
     ) {
       req.body.model = config.Router.image;
-      const images = [];
+      const images: ContentItem[] = [];
       lastMessage.content
-        .filter((item: any) => item.type === "tool_result")
-        .forEach((item: any) => {
+        .filter((item: ContentItem) => item.type === "tool_result")
+        .forEach((item: ContentItem) => {
           if (Array.isArray(item.content)) {
-            item.content.forEach((element: any) => {
+            (item.content as ContentItem[]).forEach((element: ContentItem) => {
               if (element.type === "image") {
                 images.push(element);
               }
@@ -180,11 +198,12 @@ export class ImageAgent implements IAgent {
         }
 
         const userMessage =
-          context.req.body.messages[context.req.body.messages.length - 1];
+          context.req.body.messages[context.req.body.messages.length - 1] as Message;
         if (userMessage.role === "user" && Array.isArray(userMessage.content)) {
-          const msgs = userMessage.content.filter(
-            (item) =>
+          const msgs = (userMessage.content as ContentItem[]).filter(
+            (item: ContentItem) =>
               item.type === "text" &&
+              item.text &&
               !item.text.includes(
                 "This is an image, if you need to view or analyze it, you need to extract the imageId"
               )
@@ -286,7 +305,7 @@ Your response should consistently follow this rule whenever image-related analys
         } else if (msg.type === "tool_result") {
           if (
             Array.isArray(msg.content) &&
-            msg.content.some((ele) => ele.type === "image")
+            (msg.content as ContentItem[]).some((ele: ContentItem) => ele.type === "image")
           ) {
             imageCache.storeImage(
               `${req.id}_Image#${imgId}`,

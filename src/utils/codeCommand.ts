@@ -94,15 +94,16 @@ export async function executeCodeCommand(args: string[] = []) {
   }
 
   const env = await createEnvVariables();
-  const settingsFlag = {
-    env
-  };
+  const settingsFlag: {
+    env: typeof env;
+    statusLine?: { type: string; command: string; padding: number };
+  } = { env };
   if (config?.StatusLine?.enabled) {
     settingsFlag.statusLine = {
       type: "command",
       command: "ccr statusline",
       padding: 0,
-    }
+    };
   }
   // args.push('--settings', `${JSON.stringify(settingsFlag)}`);
 

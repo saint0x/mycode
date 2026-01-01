@@ -15,6 +15,7 @@ export enum ErrorCode {
   DATABASE_TRANSACTION_FAILED = 'DB_1004',
   DATABASE_CONNECTION_LOST = 'DB_1005',
   DATABASE_SCHEMA_ERROR = 'DB_1006',
+  DATABASE_CONNECTION_FAILED = 'DB_1007',
 
   // Memory errors (2xxx)
   MEMORY_SERVICE_NOT_INITIALIZED = 'MEM_2001',
@@ -24,6 +25,10 @@ export enum ErrorCode {
   MEMORY_MISSING_PROJECT_PATH = 'MEM_2005',
   MEMORY_CONTEXT_BUILD_FAILED = 'MEM_2006',
   MEMORY_CLEANUP_FAILED = 'MEM_2007',
+  MEMORY_STORE_FAILED = 'MEM_2008',
+  MEMORY_RETRIEVAL_FAILED = 'MEM_2009',
+  MEMORY_DELETE_FAILED = 'MEM_2010',
+  MEMORY_INIT_FAILED = 'MEM_2011',
 
   // Embedding errors (3xxx)
   EMBEDDING_PROVIDER_INIT_FAILED = 'EMB_3001',
@@ -33,6 +38,8 @@ export enum ErrorCode {
   EMBEDDING_NETWORK_ERROR = 'EMB_3005',
   EMBEDDING_TIMEOUT = 'EMB_3006',
   EMBEDDING_INVALID_INPUT = 'EMB_3007',
+  EMBEDDING_INIT_FAILED = 'EMB_3008',
+  EMBEDDING_DIMENSION_MISMATCH = 'EMB_3009',
 
   // Context builder errors (4xxx)
   CONTEXT_BUILD_FAILED = 'CTX_4001',
@@ -48,6 +55,8 @@ export enum ErrorCode {
   SUBAGENT_INVALID_TYPE = 'SUB_5005',
   SUBAGENT_API_CALL_FAILED = 'SUB_5006',
   SUBAGENT_STREAM_ERROR = 'SUB_5007',
+  SUBAGENT_NETWORK_ERROR = 'SUB_5008',
+  SUBAGENT_RATE_LIMITED = 'SUB_5009',
 
   // Router errors (6xxx)
   ROUTER_CONFIG_INVALID = 'RTR_6001',
@@ -402,8 +411,9 @@ export class ContextBuilderError extends CCRError {
       code?: ErrorCode;
       operation: string;
       section?: string;
+      phase?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     super(message, {
@@ -415,6 +425,7 @@ export class ContextBuilderError extends CCRError {
         details: {
           ...options.details,
           section: options.section,
+          phase: options.phase,
         },
       },
       recoverable: true,
@@ -440,8 +451,9 @@ export class SubAgentError extends CCRError {
       operation: string;
       agentType?: string;
       depth?: number;
+      parentRequestId?: string;
       cause?: Error;
-      details?: Record<string, any>;
+      details?: Record<string, unknown>;
     }
   ) {
     const suggestions: RecoverySuggestion[] = [];
@@ -479,6 +491,7 @@ export class SubAgentError extends CCRError {
           ...options.details,
           agentType: options.agentType,
           depth: options.depth,
+          parentRequestId: options.parentRequestId,
         },
       },
       recoverable: true,

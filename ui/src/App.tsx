@@ -36,7 +36,7 @@ function App() {
   const [isLogViewerOpen, setIsLogViewerOpen] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
-  // 版本检查状态
+  // Version check state
   const [isNewVersionAvailable, setIsNewVersionAvailable] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [newVersionInfo, setNewVersionInfo] = useState<{ version: string; changelog: string } | null>(null);
@@ -50,14 +50,14 @@ function App() {
       setToast({ message: t('app.config_missing'), type: 'error' });
       return;
     }
-    
+
     try {
       // Save to API
       const response = await api.updateConfig(config);
       // Show success message or handle as needed
       console.log('Config saved successfully');
-      
-      // 根据响应信息进行提示
+
+      // Show toast based on response
       if (response && typeof response === 'object' && 'success' in response) {
         const apiResponse = response as { success: boolean; message?: string };
         if (apiResponse.success) {
@@ -66,7 +66,7 @@ function App() {
           setToast({ message: apiResponse.message || t('app.config_saved_failed'), type: 'error' });
         }
       } else {
-        // 默认成功提示
+        // Default success toast
         setToast({ message: t('app.config_saved_success'), type: 'success' });
       }
     } catch (error) {
@@ -82,11 +82,11 @@ function App() {
       setToast({ message: t('app.config_missing'), type: 'error' });
       return;
     }
-    
+
     try {
       // Save to API
       const response = await api.updateConfig(config);
-      
+
       // Check if save was successful before restarting
       let saveSuccessful = true;
       if (response && typeof response === 'object' && 'success' in response) {
@@ -96,23 +96,23 @@ function App() {
           setToast({ message: apiResponse.message || t('app.config_saved_failed'), type: 'error' });
         }
       }
-      
+
       // Only restart if save was successful
       if (saveSuccessful) {
         // Restart service
         const response = await api.restartService();
-        
+
         // Show success message or handle as needed
         console.log('Config saved and service restarted successfully');
-        
-        // 根据响应信息进行提示
+
+        // Show toast based on response
         if (response && typeof response === 'object' && 'success' in response) {
           const apiResponse = response as { success: boolean; message?: string };
           if (apiResponse.success) {
             setToast({ message: apiResponse.message || t('app.config_saved_restart_success'), type: 'success' });
           }
         } else {
-          // 默认成功提示
+          // Default success toast
           setToast({ message: t('app.config_saved_restart_success'), type: 'success' });
         }
       }
@@ -122,36 +122,36 @@ function App() {
       setToast({ message: t('app.config_saved_restart_failed') + ': ' + (error as Error).message, type: 'error' });
     }
   };
-  
-  // 检查更新函数
+
+  // Check for updates function
   const checkForUpdates = useCallback(async (showDialog: boolean = true) => {
-    // 如果已经检查过且有新版本，根据参数决定是否显示对话框
+    // If already checked and new version is available, decide whether to show dialog based on parameter
     if (hasCheckedUpdate && isNewVersionAvailable) {
       if (showDialog) {
         setIsUpdateDialogOpen(true);
       }
       return;
     }
-    
+
     setIsCheckingUpdate(true);
     try {
       const updateInfo = await api.checkForUpdates();
-      
+
       if (updateInfo.hasUpdate && updateInfo.latestVersion && updateInfo.changelog) {
         setIsNewVersionAvailable(true);
         setNewVersionInfo({
           version: updateInfo.latestVersion,
           changelog: updateInfo.changelog
         });
-        // 只有在showDialog为true时才显示对话框
+        // Only show dialog when showDialog is true
         if (showDialog) {
           setIsUpdateDialogOpen(true);
         }
       } else if (showDialog) {
-        // 只有在showDialog为true时才显示没有更新的提示
+        // Only show no updates toast when showDialog is true
         setToast({ message: t('app.no_updates_available'), type: 'success' });
       }
-      
+
       setHasCheckedUpdate(true);
     } catch (error) {
       console.error('Failed to check for updates:', error);
@@ -168,21 +168,21 @@ function App() {
       // If we already have a config, we're authenticated
       if (config) {
         setIsCheckingAuth(false);
-        // 自动检查更新，但不显示对话框
+        // Auto check for updates, but don't show dialog
         if (!hasCheckedUpdate && !hasAutoCheckedUpdate.current) {
           hasAutoCheckedUpdate.current = true;
           checkForUpdates(false);
         }
         return;
       }
-      
+
       // For empty API key, allow access without checking config
       const apiKey = localStorage.getItem('apiKey');
       if (!apiKey) {
         setIsCheckingAuth(false);
         return;
       }
-      
+
       // If we don't have a config, try to fetch it
       try {
         await api.getConfig();
@@ -198,7 +198,7 @@ function App() {
         }
       } finally {
         setIsCheckingAuth(false);
-        // 在获取配置完成后检查更新，但不显示对话框
+        // Check for updates after config is fetched, but don't show dialog
         if (!hasCheckedUpdate && !hasAutoCheckedUpdate.current) {
           hasAutoCheckedUpdate.current = true;
           checkForUpdates(false);
@@ -207,31 +207,31 @@ function App() {
     };
 
     checkAuth();
-    
+
     // Listen for unauthorized events
     const handleUnauthorized = () => {
       navigate('/login');
     };
-    
+
     window.addEventListener('unauthorized', handleUnauthorized);
-    
+
     return () => {
       window.removeEventListener('unauthorized', handleUnauthorized);
     };
   }, [config, navigate, hasCheckedUpdate, checkForUpdates]);
-  
-  // 执行更新函数
+
+  // Perform update function
   const performUpdate = async () => {
     if (!newVersionInfo) return;
-    
+
     try {
       const result = await api.performUpdate();
-      
+
       if (result.success) {
         setToast({ message: t('app.update_successful'), type: 'success' });
         setIsNewVersionAvailable(false);
         setIsUpdateDialogOpen(false);
-        setHasCheckedUpdate(false); // 重置检查状态，以便下次重新检查
+        setHasCheckedUpdate(false); // Reset check state so it can be checked again next time
       } else {
         setToast({ message: t('app.update_failed') + ': ' + result.message, type: 'error' });
       }
@@ -241,7 +241,7 @@ function App() {
     }
   };
 
-  
+
   if (isCheckingAuth) {
     return (
       <div className="h-screen bg-gray-50 font-sans flex items-center justify-center">
@@ -306,10 +306,10 @@ function App() {
               </div>
             </PopoverContent>
           </Popover>
-          {/* 更新版本按钮 */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          {/* Update version button */}
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => checkForUpdates(true)}
             disabled={isCheckingUpdate}
             className="transition-all-ease hover:scale-110 relative"
@@ -350,17 +350,17 @@ function App() {
         </div>
       </main>
       <SettingsDialog isOpen={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
-      <JsonEditor 
-        open={isJsonEditorOpen} 
-        onOpenChange={setIsJsonEditorOpen} 
-        showToast={(message, type) => setToast({ message, type })} 
+      <JsonEditor
+        open={isJsonEditorOpen}
+        onOpenChange={setIsJsonEditorOpen}
+        showToast={(message, type) => setToast({ message, type })}
       />
-      <LogViewer 
-        open={isLogViewerOpen} 
-        onOpenChange={setIsLogViewerOpen} 
-        showToast={(message, type) => setToast({ message, type })} 
+      <LogViewer
+        open={isLogViewerOpen}
+        onOpenChange={setIsLogViewerOpen}
+        showToast={(message, type) => setToast({ message, type })}
       />
-      {/* 版本更新对话框 */}
+      {/* Version update dialog */}
       <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -401,10 +401,10 @@ function App() {
         </DialogContent>
       </Dialog>
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>

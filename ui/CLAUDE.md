@@ -29,5 +29,5 @@ This is a frontend project for a configuration settings UI. The goal is to produ
 - **UI:** The UI is built with `shadcn-ui` components. Refer to existing components in `src/components/ui/` for styling conventions.
 - **API Client:** The project uses a custom `ApiClient` class for handling HTTP requests with baseUrl and API key authentication. The class is defined in `src/lib/api.ts` and provides methods for GET, POST, PUT, and DELETE requests.
 
-## 项目描述
-参考`PROJECT.md`文件
+## Project Description
+Refer to the `PROJECT.md` file

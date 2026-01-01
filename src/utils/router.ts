@@ -77,12 +77,12 @@ const readConfigFile = async (filePath: string) => {
     const content = await readFile(filePath, "utf8");
     return JSON.parse(content);
   } catch (error) {
-    return null; // 文件不存在或读取失败时返回null
+    return null; // Return null if file doesn't exist or read fails
   }
 };
 
 const getProjectSpecificRouter = async (req: any) => {
-  // 检查是否有项目特定的配置
+  // Check if there's project-specific configuration
   if (req.sessionId) {
     const project = await searchProjectBySession(req.sessionId);
     if (project) {
@@ -93,7 +93,7 @@ const getProjectSpecificRouter = async (req: any) => {
         `${req.sessionId}.json`
       );
 
-      // 首先尝试读取sessionConfig文件
+      // First try to read sessionConfig file
       const sessionConfig = await readConfigFile(sessionConfigPath);
       if (sessionConfig && sessionConfig.Router) {
         return sessionConfig.Router;
@@ -104,7 +104,7 @@ const getProjectSpecificRouter = async (req: any) => {
       }
     }
   }
-  return undefined; // 返回undefined表示使用原始配置
+  return undefined; // Return undefined to use original configuration
 };
 
 const getUseModel = async (
@@ -209,10 +209,14 @@ export const router = async (req: any, _res: any, context: any) => {
   if (
     config.REWRITE_SYSTEM_PROMPT &&
     system.length > 1 &&
-    system[1]?.text?.includes("<env>")
+    typeof system[1] === 'object' &&
+    'text' in system[1] &&
+    typeof system[1].text === 'string' &&
+    system[1].text.includes("<env>")
   ) {
     const prompt = await readFile(config.REWRITE_SYSTEM_PROMPT, "utf-8");
-    system[1].text = `${prompt}<env>${system[1].text.split("<env>").pop()}`;
+    const systemBlock = system[1] as { text: string };
+    systemBlock.text = `${prompt}<env>${systemBlock.text.split("<env>").pop()}`;
   }
 
   try {
@@ -245,33 +249,34 @@ export const router = async (req: any, _res: any, context: any) => {
   return;
 };
 
-// 内存缓存，存储sessionId到项目名称的映射
-// null值表示之前已查找过但未找到项目
-// 使用LRU缓存，限制最大1000个条目
-const sessionProjectCache = new LRUCache<string, string | null>({
+// In-memory cache storing sessionId to project name mapping
+// Empty string indicates previously searched but no project found
+// Uses LRU cache with max 1000 entries
+const sessionProjectCache = new LRUCache<string, string>({
   max: 1000,
 });
 
 export const searchProjectBySession = async (
   sessionId: string
 ): Promise<string | null> => {
-  // 首先检查缓存
+  // First check the cache
   if (sessionProjectCache.has(sessionId)) {
-    return sessionProjectCache.get(sessionId)!;
+    const cached = sessionProjectCache.get(sessionId)!;
+    return cached === '' ? null : cached;
   }
 
   try {
     const dir = await opendir(CLAUDE_PROJECTS_DIR);
     const folderNames: string[] = [];
 
-    // 收集所有文件夹名称
+    // Collect all folder names
     for await (const dirent of dir) {
       if (dirent.isDirectory()) {
         folderNames.push(dirent.name);
       }
     }
 
-    // 并发检查每个项目文件夹中是否存在sessionId.jsonl文件
+    // Concurrently check if sessionId.jsonl file exists in each project folder
     const checkPromises = folderNames.map(async (folderName) => {
       const sessionFilePath = join(
         CLAUDE_PROJECTS_DIR,
@@ -282,29 +287,29 @@ export const searchProjectBySession = async (
         const fileStat = await stat(sessionFilePath);
         return fileStat.isFile() ? folderName : null;
       } catch {
-        // 文件不存在，继续检查下一个
+        // File doesn't exist, continue checking next
         return null;
       }
     });
 
     const results = await Promise.all(checkPromises);
 
-    // 返回第一个存在的项目目录名称
+    // Return the first existing project directory name
     for (const result of results) {
       if (result) {
-        // 缓存找到的结果
+        // Cache the found result
         sessionProjectCache.set(sessionId, result);
         return result;
       }
     }
 
-    // 缓存未找到的结果（null值表示之前已查找过但未找到项目）
-    sessionProjectCache.set(sessionId, null);
-    return null; // 没有找到匹配的项目
+    // Cache not-found result (empty string indicates previously searched but no project found)
+    sessionProjectCache.set(sessionId, '');
+    return null; // No matching project found
   } catch (error) {
     console.error("Error searching for project by session:", error);
-    // 出错时也缓存null结果，避免重复出错
-    sessionProjectCache.set(sessionId, null);
+    // Also cache empty string on error to avoid repeated errors
+    sessionProjectCache.set(sessionId, '');
     return null;
   }
 };

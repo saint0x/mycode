@@ -14,7 +14,7 @@ import {
 import { CONFIG_FILE, MEMORY_DB_PATH } from "./constants";
 import { createStream } from 'rotating-file-stream';
 import { HOME_DIR } from "./constants";
-import { sessionUsageCache } from "./utils/cache";
+import { sessionUsageCache, type Usage } from "./utils/cache";
 import {SSEParserTransform} from "./utils/SSEParser.transform";
 import {SSESerializerTransform} from "./utils/SSESerializer.transform";
 import {rewriteStream} from "./utils/rewriteStream";
@@ -31,14 +31,42 @@ import { initHooksManager, getHooksManager, hasHooksManager } from "./hooks";
 import { initPluginManager, getPluginManager } from "./plugins";
 import { initSkillsManager, getSkillsManager, hasSkillsManager } from "./skills";
 import { HOOKS_DIR, PLUGINS_DIR, SKILLS_DIR, LOGS_DIR } from "./constants";
+import type { CCRConfig } from "./types/request";
+import type { FastifyRequest, FastifyReply } from "fastify";
 
 const event = new EventEmitter()
+
+// Extended request interface for CCR
+interface CCRFastifyRequest extends FastifyRequest {
+  sessionId?: string;
+  projectPath?: string;
+  agents?: string[];
+  contextAnalysis?: import("./context/types").RequestAnalysis;
+  routeInfo?: {
+    provider?: string;
+    model?: string;
+  };
+  body: Record<string, unknown> & {
+    messages?: Array<{ role: string; content: unknown }>;
+    tools?: Array<{ name: string; description: string; input_schema: unknown }>;
+    system?: string;
+  };
+}
+
+// Helper for safe logging
+function logError(logger: FastifyRequest['log'], message: string, err?: unknown): void {
+  if (err instanceof Error) {
+    logger.error({ err }, message);
+  } else {
+    logger.error(message);
+  }
+}
 
 // Extract and save memories from response content
 async function extractMemoriesFromResponse(
   content: string,
-  req: any,
-  config: any
+  req: CCRFastifyRequest,
+  config: CCRConfig
 ): Promise<void> {
   if (!config.Memory?.enabled || !hasMemoryService()) return;
 
@@ -73,7 +101,7 @@ async function extractMemoriesFromResponse(
   }
 }
 
-async function autoExtractMemories(content: string, req: any, config: any): Promise<void> {
+async function autoExtractMemories(content: string, req: CCRFastifyRequest, config: CCRConfig): Promise<void> {
   if (!hasMemoryService()) return;
 
   const memoryService = getMemoryService();
@@ -261,18 +289,16 @@ async function run(options: RunOptions = {}) {
     : port;
 
   // Configure logger based on config settings
-  const pad = num => (num > 9 ? "" : "0") + num;
-  const generator = (time, index) => {
-    if (!time) {
-      time = new Date()
-    }
+  const pad = (num: number): string => (num > 9 ? "" : "0") + num;
+  const generator = (time: Date | number, index?: number): string => {
+    const now = typeof time === 'number' ? new Date(time) : (time || new Date());
 
-    var month = time.getFullYear() + "" + pad(time.getMonth() + 1);
-    var day = pad(time.getDate());
-    var hour = pad(time.getHours());
-    var minute = pad(time.getMinutes());
+    const month = now.getFullYear() + "" + pad(now.getMonth() + 1);
+    const day = pad(now.getDate());
+    const hour = pad(now.getHours());
+    const minute = pad(now.getMinutes());
 
-    return `./logs/ccr-${month}${day}${hour}${minute}${pad(time.getSeconds())}${index ? `_${index}` : ''}.log`;
+    return `./logs/ccr-${month}${day}${hour}${minute}${pad(now.getSeconds())}${index ? `_${index}` : ''}.log`;
   };
   const loggerConfig =
     config.LOG !== false
@@ -302,15 +328,15 @@ async function run(options: RunOptions = {}) {
 
   // Add global error handlers to prevent the service from crashing
   process.on("uncaughtException", (err) => {
-    server.logger.error("Uncaught exception:", err);
+    server.logger.error({ err }, "Uncaught exception");
   });
 
   process.on("unhandledRejection", (reason, promise) => {
-    server.logger.error("Unhandled rejection at:", promise, "reason:", reason);
+    server.logger.error({ promise, reason }, "Unhandled rejection");
   });
   // Add async preHandler hook for authentication
-  server.addHook("preHandler", async (req, reply) => {
-    return new Promise((resolve, reject) => {
+  server.addHook("preHandler", async (req: FastifyRequest, reply: FastifyReply) => {
+    return new Promise<void>((resolve, reject) => {
       const done = (err?: Error) => {
         if (err) reject(err);
         else resolve();
@@ -319,7 +345,8 @@ async function run(options: RunOptions = {}) {
       apiKeyAuth(config)(req, reply, done).catch(reject);
     });
   });
-  server.addHook("preHandler", async (req, reply) => {
+  server.addHook("preHandler", async (req: FastifyRequest, reply: FastifyReply) => {
+    const extReq = req as CCRFastifyRequest;
     if (req.url.startsWith("/v1/messages") && !req.url.startsWith("/v1/messages/count_tokens")) {
       // ═══════════════════════════════════════════════════════════════════
       // HOOK: SessionStart - Fire at start of new session/request
@@ -328,16 +355,16 @@ async function run(options: RunOptions = {}) {
         try {
           const sessionStartResult = await getHooksManager().executeHooks('SessionStart', {
             request: {
-              body: req.body,
+              body: extReq.body as Record<string, unknown>,
               headers: req.headers as Record<string, string | string[] | undefined>,
               url: req.url,
               method: req.method,
-              sessionId: req.sessionId,
-              projectPath: req.projectPath
+              sessionId: extReq.sessionId,
+              projectPath: extReq.projectPath
             },
             config,
-            sessionId: req.sessionId,
-            projectPath: req.projectPath
+            sessionId: extReq.sessionId,
+            projectPath: extReq.projectPath
           });
 
           if (!sessionStartResult.continue) {
@@ -349,7 +376,7 @@ async function run(options: RunOptions = {}) {
             });
           }
         } catch (err) {
-          req.log.error('[Hooks] SessionStart hook error:', err);
+          logError(req.log, '[Hooks] SessionStart hook error', err);
           // Fail open - continue processing
         }
       }
@@ -361,16 +388,16 @@ async function run(options: RunOptions = {}) {
         try {
           const preRouteResult = await getHooksManager().executeHooks('PreRoute', {
             request: {
-              body: req.body,
+              body: extReq.body as Record<string, unknown>,
               headers: req.headers as Record<string, string | string[] | undefined>,
               url: req.url,
               method: req.method,
-              sessionId: req.sessionId,
-              projectPath: req.projectPath
+              sessionId: extReq.sessionId,
+              projectPath: extReq.projectPath
             },
             config,
-            sessionId: req.sessionId,
-            projectPath: req.projectPath
+            sessionId: extReq.sessionId,
+            projectPath: extReq.projectPath
           });
 
           if (!preRouteResult.continue) {
@@ -384,30 +411,30 @@ async function run(options: RunOptions = {}) {
 
           // Apply any modifications from hook
           if (preRouteResult.modifications?.body) {
-            req.body = { ...req.body, ...preRouteResult.modifications.body };
+            extReq.body = { ...extReq.body, ...preRouteResult.modifications.body };
           }
         } catch (err) {
-          req.log.error('[Hooks] PreRoute hook error:', err);
+          logError(req.log, '[Hooks] PreRoute hook error', err);
           // Fail open - continue processing
         }
       }
 
-      const useAgents = []
+      const useAgents: string[] = []
 
       for (const agent of agentsManager.getAllAgents()) {
-        if (agent.shouldHandle(req, config)) {
+        if (agent.shouldHandle(extReq, config)) {
           // Set agent identifier
           useAgents.push(agent.name)
 
           // change request body
-          agent.reqHandler(req, config);
+          agent.reqHandler(extReq, config);
 
           // append agent tools
           if (agent.tools.size) {
-            if (!req.body?.tools?.length) {
-              req.body.tools = []
+            if (!extReq.body?.tools?.length) {
+              extReq.body.tools = []
             }
-            req.body.tools.unshift(...Array.from(agent.tools.values()).map(item => {
+            extReq.body.tools.unshift(...Array.from(agent.tools.values()).map(item => {
               return {
                 name: item.name,
                 description: item.description,
@@ -419,43 +446,40 @@ async function run(options: RunOptions = {}) {
       }
 
       if (useAgents.length) {
-        req.agents = useAgents;
+        extReq.agents = useAgents;
       }
 
       // Build dynamic context with memory injection
       if (config.Memory?.enabled && hasMemoryService()) {
         try {
           const builder = getContextBuilder();
-          const projectPath = req.sessionId ? await searchProjectBySession(req.sessionId) : undefined;
+          const projectPathResult = extReq.sessionId ? await searchProjectBySession(extReq.sessionId) : null;
+          const projectPath = projectPathResult ?? undefined;
 
           const contextResult = await builder.build(
-            req.body.system,
+            extReq.body.system,
             {
-              messages: req.body.messages,
+              messages: extReq.body.messages || [],
               projectPath: projectPath || undefined,
-              sessionId: req.sessionId,
-              tools: req.body.tools,
+              sessionId: extReq.sessionId,
+              tools: extReq.body.tools,
             }
           );
 
           // Replace system prompt with enhanced version
-          req.body.system = contextResult.systemPrompt;
-          req.contextAnalysis = contextResult.analysis;
-          req.projectPath = projectPath;
+          extReq.body.system = contextResult.systemPrompt;
+          extReq.contextAnalysis = contextResult.analysis;
+          extReq.projectPath = projectPath || undefined;
 
           if (config.Memory.debugMode) {
-            req.log.info('[Context Builder]', {
-              taskType: contextResult.analysis.taskType,
-              sections: contextResult.sections.length,
-              tokens: contextResult.totalTokens,
-            });
+            req.log.info(`[Context Builder] taskType=${contextResult.analysis.taskType} sections=${contextResult.sections.length} tokens=${contextResult.totalTokens}`);
           }
         } catch (err) {
-          req.log.error('Context building failed:', err);
+          logError(req.log, 'Context building failed', err);
         }
       }
 
-      await router(req, reply, {
+      await router(extReq, reply, {
         config,
         event
       });
@@ -467,47 +491,63 @@ async function run(options: RunOptions = {}) {
         try {
           await getHooksManager().executeHooks('PostRoute', {
             request: {
-              body: req.body,
+              body: extReq.body as Record<string, unknown>,
               headers: req.headers as Record<string, string | string[] | undefined>,
               url: req.url,
               method: req.method,
-              sessionId: req.sessionId,
-              projectPath: req.projectPath
+              sessionId: extReq.sessionId,
+              projectPath: extReq.projectPath
             },
             config,
-            sessionId: req.sessionId,
-            projectPath: req.projectPath,
-            routeDecision: req.routeInfo?.provider || 'unknown'
+            sessionId: extReq.sessionId,
+            projectPath: extReq.projectPath,
+            routeDecision: extReq.routeInfo?.provider || 'unknown'
           });
         } catch (err) {
-          req.log.error('[Hooks] PostRoute hook error:', err);
+          logError(req.log, '[Hooks] PostRoute hook error', err);
           // Fail open - continue processing
         }
       }
     }
   });
-  server.addHook("onError", async (request, reply, error) => {
+  server.addHook("onError", async (request: FastifyRequest, reply: FastifyReply, error: Error) => {
     event.emit('onError', request, reply, error);
   })
-  server.addHook("onSend", (req, reply, payload, done) => {
-    if (req.sessionId && req.url.startsWith("/v1/messages") && !req.url.startsWith("/v1/messages/count_tokens")) {
+
+  interface ToolMessage {
+    tool_use_id: string;
+    type: "tool_result";
+    content: string | undefined;
+  }
+
+  interface AssistantMessage {
+    type: "tool_use" | "text";
+    id?: string;
+    name?: string;
+    input?: Record<string, unknown>;
+    text?: string;
+  }
+
+  server.addHook("onSend", (req: FastifyRequest, reply: FastifyReply, payload: unknown, done: (err: Error | null, payload: unknown) => void) => {
+    const extReq = req as CCRFastifyRequest;
+    if (extReq.sessionId && req.url.startsWith("/v1/messages") && !req.url.startsWith("/v1/messages/count_tokens")) {
       if (payload instanceof ReadableStream) {
-        if (req.agents) {
+        if (extReq.agents) {
           const abortController = new AbortController();
-          const eventStream = payload.pipeThrough(new SSEParserTransform())
+          const eventStream = payload.pipeThrough(new TextDecoderStream()).pipeThrough(new SSEParserTransform())
           let currentAgent: undefined | IAgent;
           let currentToolIndex = -1
           let currentToolName = ''
           let currentToolArgs = ''
           let currentToolId = ''
-          const toolMessages: any[] = []
-          const assistantMessages: any[] = []
+          const toolMessages: ToolMessage[] = []
+          const assistantMessages: AssistantMessage[] = []
           // Store Anthropic format message body, distinguish text and tool types
-          return done(null, rewriteStream(eventStream, async (data, controller) => {
+          return done(null, (rewriteStream(eventStream, async (data, controller) => {
             try {
               // Detect tool call start
               if (data.event === 'content_block_start' && data?.data?.content_block?.name) {
-                const agent = req.agents.find((name: string) => agentsManager.getAgent(name)?.tools.get(data.data.content_block.name))
+                const agent = extReq.agents?.find((name: string) => agentsManager.getAgent(name)?.tools.get(data.data.content_block.name))
                 if (agent) {
                   currentAgent = agentsManager.getAgent(agent)
                   currentToolIndex = data.data.index
@@ -545,8 +585,8 @@ async function run(options: RunOptions = {}) {
                         toolName: currentToolName,
                         toolInput: args,
                         config,
-                        sessionId: req.sessionId,
-                        projectPath: req.projectPath
+                        sessionId: extReq.sessionId,
+                        projectPath: extReq.projectPath
                       });
 
                       if (!preToolResult.continue) {
@@ -564,7 +604,7 @@ async function run(options: RunOptions = {}) {
                     toolResult = toolBlockedMessage;
                   } else {
                     toolResult = await currentAgent?.tools.get(currentToolName)?.handler(args, {
-                      req,
+                      req: extReq,
                       config
                     });
 
@@ -578,8 +618,8 @@ async function run(options: RunOptions = {}) {
                           toolInput: args,
                           toolOutput: { result: toolResult },
                           config,
-                          sessionId: req.sessionId,
-                          projectPath: req.projectPath
+                          sessionId: extReq.sessionId,
+                          projectPath: extReq.projectPath
                         });
 
                         // Allow hooks to modify tool output
@@ -609,26 +649,30 @@ async function run(options: RunOptions = {}) {
               }
 
               if (data.event === 'message_delta' && toolMessages.length) {
-                req.body.messages.push({
+                const messages = extReq.body.messages || [];
+                messages.push({
                   role: 'assistant',
                   content: assistantMessages
                 })
-                req.body.messages.push({
+                messages.push({
                   role: 'user',
                   content: toolMessages
                 })
+                extReq.body.messages = messages;
                 const response = await fetch(`http://127.0.0.1:${config.PORT || 3456}/v1/messages`, {
                   method: "POST",
                   headers: {
-                    'x-api-key': config.APIKEY,
+                    'x-api-key': config.APIKEY || '',
                     'content-type': 'application/json',
                   },
-                  body: JSON.stringify(req.body),
+                  body: JSON.stringify(extReq.body),
                 })
                 if (!response.ok) {
                   return undefined;
                 }
-                const stream = response.body!.pipeThrough(new SSEParserTransform())
+                const stream = response.body!
+                  .pipeThrough(new TextDecoderStream())
+                  .pipeThrough(new SSEParserTransform() as unknown as TransformStream<string, { event?: string; data?: unknown }>)
                 const reader = stream.getReader()
                 while (true) {
                   try {
@@ -636,7 +680,7 @@ async function run(options: RunOptions = {}) {
                     if (done) {
                       break;
                     }
-                    if (['message_start', 'message_stop'].includes(value.event)) {
+                    if (value.event && ['message_start', 'message_stop'].includes(value.event)) {
                       continue
                     }
 
@@ -645,10 +689,10 @@ async function run(options: RunOptions = {}) {
                       break;
                     }
 
-                    controller.enqueue(value)
+                    (controller as ReadableStreamDefaultController<unknown>).enqueue(value)
                   }catch (readError: any) {
                     if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
-                      abortController.abort(); // 中止所有相关操作
+                      abortController.abort(); // Abort all related operations
                       break;
                     }
                     throw readError;
@@ -667,10 +711,10 @@ async function run(options: RunOptions = {}) {
                 return undefined;
               }
 
-              // 其他错误仍然抛出
+              // Rethrow other errors
               throw error;
             }
-          }).pipeThrough(new SSESerializerTransform()))
+          }) as ReadableStream).pipeThrough(new SSESerializerTransform() as unknown as TransformStream<unknown, Uint8Array>))
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -680,17 +724,17 @@ async function run(options: RunOptions = {}) {
         // Check if memory processing is enabled
         if (config.Memory?.enabled && hasMemoryService()) {
           const memoryProcessor = createMemoryProcessingTransform({
-            req,
+            req: extReq,
             config,
             onMemoryExtracted: async (memory) => {
               try {
                 const memoryService = getMemoryService();
                 await memoryService.remember(memory.content, {
                   scope: memory.scope,
-                  projectPath: req.projectPath,
+                  projectPath: extReq.projectPath,
                   category: memory.category as MemoryCategory,
                   metadata: {
-                    sessionId: req.sessionId,
+                    sessionId: extReq.sessionId,
                     source: 'agent-explicit',
                   },
                 });
@@ -705,7 +749,7 @@ async function run(options: RunOptions = {}) {
 
           // Process stream through memory transform
           const processedStream = (payload as ReadableStream<Uint8Array>)
-            .pipeThrough(new TextDecoderStream())
+            .pipeThrough(new TextDecoderStream() as unknown as TransformStream<Uint8Array, string>)
             .pipeThrough(new SSEParserTransform() as unknown as TransformStream<string, any>)
             .pipeThrough(new TransformStream<any, any>({
               transform(event: any, controller: TransformStreamDefaultController<any>) {
@@ -731,13 +775,18 @@ async function run(options: RunOptions = {}) {
                 if (dataStr.startsWith("event: message_delta")) {
                   const str = dataStr.slice(27);
                   try {
-                    const message = JSON.parse(str);
-                    sessionUsageCache.put(req.sessionId, message.usage);
-                  } catch {}
+                    const message = JSON.parse(str) as { usage?: Usage };
+                    if (extReq.sessionId && message.usage) {
+                      sessionUsageCache.put(extReq.sessionId, message.usage);
+                    }
+                  } catch {
+                    // Ignore parse errors
+                  }
                 }
               }
-            } catch (readError: any) {
-              if (readError.name !== 'AbortError' && readError.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+            } catch (readError: unknown) {
+              const err = readError as { name?: string; code?: string };
+              if (err.name !== 'AbortError' && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
                 console.error('Error in background stream reading:', readError);
               }
             } finally {
@@ -750,7 +799,7 @@ async function run(options: RunOptions = {}) {
         }
 
         // Fallback: no memory processing
-        const [originalStream, clonedStream] = payload.tee();
+        const [originalStream, clonedStream] = (payload as ReadableStream).tee();
         const read = async (stream: ReadableStream) => {
           const reader = stream.getReader();
           try {
@@ -764,12 +813,17 @@ async function run(options: RunOptions = {}) {
               }
               const str = dataStr.slice(27);
               try {
-                const message = JSON.parse(str);
-                sessionUsageCache.put(req.sessionId, message.usage);
-              } catch {}
+                const message = JSON.parse(str) as { usage?: Usage };
+                if (extReq.sessionId && message.usage) {
+                  sessionUsageCache.put(extReq.sessionId, message.usage);
+                }
+              } catch {
+                // Ignore parse errors
+              }
             }
-          } catch (readError: any) {
-            if (readError.name === 'AbortError' || readError.code === 'ERR_STREAM_PREMATURE_CLOSE') {
+          } catch (readError: unknown) {
+            const err = readError as { name?: string; code?: string };
+            if (err.name === 'AbortError' || err.code === 'ERR_STREAM_PREMATURE_CLOSE') {
               console.error('Background read stream closed prematurely');
             } else {
               console.error('Error in background stream reading:', readError);
@@ -781,21 +835,28 @@ async function run(options: RunOptions = {}) {
         read(clonedStream);
         return done(null, originalStream)
       }
-      sessionUsageCache.put(req.sessionId, payload.usage);
-      if (typeof payload ==='object') {
-        if (payload.error) {
-          return done(payload.error, null)
+      if (extReq.sessionId) {
+        const payloadUsage = (payload as { usage?: Usage }).usage;
+        if (payloadUsage) {
+          sessionUsageCache.put(extReq.sessionId, payloadUsage);
+        }
+      }
+      if (typeof payload ==='object' && payload !== null) {
+        const payloadObj = payload as { error?: Error };
+        if (payloadObj.error) {
+          return done(payloadObj.error, null)
         } else {
-          return done(payload, null)
+          return done(null, payload)
         }
       }
     }
-    if (typeof payload ==='object' && payload.error) {
-      return done(payload.error, null)
+    if (typeof payload ==='object' && payload !== null && (payload as { error?: Error }).error) {
+      return done((payload as { error: Error }).error, null)
     }
     done(null, payload)
   });
-  server.addHook("onSend", async (req, reply, payload) => {
+  server.addHook("onSend", async (req: FastifyRequest, reply: FastifyReply, payload: unknown) => {
+    const extReq = req as CCRFastifyRequest;
     // ═══════════════════════════════════════════════════════════════════
     // HOOK: PreResponse - Before sending response to client
     // ═══════════════════════════════════════════════════════════════════
@@ -803,20 +864,20 @@ async function run(options: RunOptions = {}) {
       try {
         const preResponseResult = await getHooksManager().executeHooks('PreResponse', {
           request: {
-            body: req.body,
+            body: extReq.body as Record<string, unknown>,
             headers: req.headers as Record<string, string | string[] | undefined>,
             url: req.url,
             method: req.method,
-            sessionId: req.sessionId,
-            projectPath: req.projectPath
+            sessionId: extReq.sessionId,
+            projectPath: extReq.projectPath
           },
           response: {
             statusCode: reply.statusCode,
             headers: reply.getHeaders() as Record<string, string>
           },
           config,
-          sessionId: req.sessionId,
-          projectPath: req.projectPath
+          sessionId: extReq.sessionId,
+          projectPath: extReq.projectPath
         });
 
         if (!preResponseResult.continue) {
@@ -827,7 +888,7 @@ async function run(options: RunOptions = {}) {
       }
     }
 
-    event.emit('onSend', req, reply, payload);
+    event.emit('onSend', extReq, reply, payload);
 
     // ═══════════════════════════════════════════════════════════════════
     // HOOK: SessionEnd - After response is complete
@@ -836,20 +897,20 @@ async function run(options: RunOptions = {}) {
       // Fire SessionEnd asynchronously - don't block response
       getHooksManager().executeHooks('SessionEnd', {
         request: {
-          body: req.body,
+          body: extReq.body as Record<string, unknown>,
           headers: req.headers as Record<string, string | string[] | undefined>,
           url: req.url,
           method: req.method,
-          sessionId: req.sessionId,
-          projectPath: req.projectPath
+          sessionId: extReq.sessionId,
+          projectPath: extReq.projectPath
         },
         response: {
           statusCode: reply.statusCode,
           headers: reply.getHeaders() as Record<string, string>
         },
         config,
-        sessionId: req.sessionId,
-        projectPath: req.projectPath
+        sessionId: extReq.sessionId,
+        projectPath: extReq.projectPath
       }).catch(err => {
         console.error('[Hooks] SessionEnd hook error:', err);
       });

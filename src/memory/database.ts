@@ -591,6 +591,43 @@ export class MemoryDatabase {
   // SEARCH OPERATIONS
   // ═══════════════════════════════════════════════════════════════════
 
+  // Get all embeddings as a bulk Map for cache warming
+  getAllEmbeddingsBulk(): Map<string, Float32Array> {
+    const result = new Map<string, Float32Array>();
+
+    try {
+      // Get all global memory IDs
+      const globalMemories = this.getAllGlobalMemories();
+      for (const memory of globalMemories) {
+        try {
+          const embedding = this.readEmbedding(memory.id);
+          if (embedding) {
+            result.set(memory.id, embedding);
+          }
+        } catch {
+          // Skip individual errors
+        }
+      }
+
+      // Get all project memory IDs
+      const projectMemories = this.getAllProjectMemories();
+      for (const memory of projectMemories) {
+        try {
+          const embedding = this.readEmbedding(memory.id);
+          if (embedding) {
+            result.set(memory.id, embedding);
+          }
+        } catch {
+          // Skip individual errors
+        }
+      }
+    } catch (error) {
+      console.error('[MemoryDatabase] Error getting all embeddings bulk:', error);
+    }
+
+    return result;
+  }
+
   // Get all embeddings for vector search
   getAllGlobalEmbeddings(): { id: string; embedding: Float32Array }[] {
     try {

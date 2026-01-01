@@ -29,9 +29,10 @@ export class EmbeddingCache {
     }
 
     // Cache miss or stale - reload
-    this.globalCache = db.getAllEmbeddingsBulk();
+    const embeddings = db.getAllEmbeddingsBulk();
+    this.globalCache = embeddings;
     this.globalLastWarm = now;
-    return this.globalCache;
+    return embeddings;
   }
 
   /**
@@ -63,7 +64,7 @@ export class EmbeddingCache {
     }
 
     // Load fresh from DB
-    const allEmbeddings = db.getAllEmbeddingsBulk();
+    const allEmbeddings: Map<string, Float32Array> = db.getAllEmbeddingsBulk();
     const projectMemories = db.getProjectMemoriesByPath(projectPath);
     const projectIds = new Set(projectMemories.map(m => m.id));
 

@@ -12,6 +12,8 @@ import { getHooksManager, hasHooksManager } from "./hooks";
 import { getSkillsManager, hasSkillsManager } from "./skills";
 import type { ProviderConfig } from "./config/schema";
 import { version } from "../package.json";
+import type { FastifyRequest, FastifyReply } from "fastify";
+import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
 
 interface ServerConfig {
   jsonPath: string;
@@ -35,29 +37,35 @@ interface LogQueryParams {
   file?: string;
 }
 
-interface ExtendedRequest {
+interface ExtendedRequest extends FastifyRequest {
   accessLevel?: 'full' | 'restricted';
+}
+
+interface TokenCountBody {
+  messages: MessageParam[];
+  tools: Tool[];
+  system: string;
 }
 
 export const createServer = (config: ServerConfig): Server => {
   const server = new Server(config);
 
-  server.app.post("/v1/messages/count_tokens", async (req, reply) => {
+  server.app.post("/v1/messages/count_tokens", async (req: FastifyRequest<{ Body: TokenCountBody }>, _reply: FastifyReply) => {
     const {messages, tools, system} = req.body;
     const tokenCount = calculateTokenCount(messages, system, tools);
     return { "input_tokens": tokenCount }
   });
 
   // Add endpoint to read config.json with access control
-  server.app.get("/api/config", async (req, reply) => {
+  server.app.get("/api/config", async (_req: FastifyRequest, _reply: FastifyReply) => {
     return await readConfigFile();
   });
 
   server.app.get("/api/transformers", async () => {
     const transformers =
       server.app._server!.transformerService.getAllTransformers();
-    const transformerList = Array.from(transformers.entries()).map(
-      ([name, transformer]: [string, TransformerEntry]) => ({
+    const transformerList = Array.from(transformers.entries() as IterableIterator<[string, TransformerEntry]>).map(
+      ([name, transformer]) => ({
         name,
         endpoint: transformer.endPoint || null,
       })
@@ -66,7 +74,7 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Add endpoint to save config.json with access control
-  server.app.post("/api/config", async (req, reply) => {
+  server.app.post("/api/config", async (req: FastifyRequest<{ Body: Record<string, unknown> }>, _reply: FastifyReply) => {
     const newConfig = req.body;
 
     // Backup existing config file if it exists
@@ -80,7 +88,7 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Add endpoint to restart the service with access control
-  server.app.post("/api/restart", async (req, reply) => {
+  server.app.post("/api/restart", async (_req: FastifyRequest, reply: FastifyReply) => {
     reply.send({ success: true, message: "Service restart initiated" });
 
     // Restart the service after a short delay to allow response to be sent
@@ -100,12 +108,12 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Redirect /ui to /ui/ for proper static file serving
-  server.app.get("/ui", async (_, reply) => {
+  server.app.get("/ui", async (_req: FastifyRequest, reply: FastifyReply) => {
     return reply.redirect("/ui/");
   });
 
   // Version check endpoint
-  server.app.get("/api/update/check", async (req, reply) => {
+  server.app.get("/api/update/check", async (_req: FastifyRequest, reply: FastifyReply) => {
     try {
       const { hasUpdate, latestVersion, changelog } = await checkForUpdates(version);
 
@@ -121,10 +129,10 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Perform update endpoint
-  server.app.post("/api/update/perform", async (req, reply) => {
+  server.app.post("/api/update/perform", async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       // Only allow full access users to perform updates
-      const extReq = req as typeof req & ExtendedRequest;
+      const extReq = req as ExtendedRequest;
       const accessLevel = extReq.accessLevel || "restricted";
       if (accessLevel !== "full") {
         reply.status(403).send("Full access required to perform updates");
@@ -142,7 +150,7 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Get log files list endpoint
-  server.app.get("/api/logs/files", async (req, reply) => {
+  server.app.get("/api/logs/files", async (_req: FastifyRequest, reply: FastifyReply) => {
     try {
       const logDir = LOGS_DIR;
       const logFiles: Array<{ name: string; path: string; size: number; lastModified: string }> = [];
@@ -176,10 +184,9 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Get log content endpoint
-  server.app.get("/api/logs", async (req, reply) => {
+  server.app.get("/api/logs", async (req: FastifyRequest<{ Querystring: LogQueryParams }>, reply: FastifyReply) => {
     try {
-      const query = req.query as LogQueryParams;
-      const fileName = query.file;
+      const fileName = req.query.file;
       let logFilePath: string;
 
       if (fileName) {
@@ -213,7 +220,7 @@ export const createServer = (config: ServerConfig): Server => {
   });
 
   // Clear log content endpoint
-  server.app.delete("/api/logs", async (req, reply) => {
+  server.app.delete("/api/logs", async (req: FastifyRequest<{ Querystring: LogQueryParams }>, reply: FastifyReply) => {
     try {
       const query = req.query as LogQueryParams;
       const fileName = query.file;
@@ -265,16 +272,16 @@ export const createServer = (config: ServerConfig): Server => {
     }));
   });
 
-  server.app.post("/api/plugins/:name/enable", async (req) => {
-    const { name } = req.params as { name: string };
+  server.app.post("/api/plugins/:name/enable", async (req: FastifyRequest<{ Params: { name: string } }>) => {
+    const { name } = req.params;
     if (!hasPluginManager()) return { success: false, name };
     const pluginManager = getPluginManager();
     const success = pluginManager.enablePlugin(name);
     return { success, name };
   });
 
-  server.app.post("/api/plugins/:name/disable", async (req) => {
-    const { name } = req.params as { name: string };
+  server.app.post("/api/plugins/:name/disable", async (req: FastifyRequest<{ Params: { name: string } }>) => {
+    const { name } = req.params;
     if (!hasPluginManager()) return { success: false, name };
     const pluginManager = getPluginManager();
     const success = pluginManager.disablePlugin(name);
