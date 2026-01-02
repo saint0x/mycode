@@ -18,6 +18,7 @@ import type { ProviderConfig } from "./config/schema";
 import { version } from "../package.json";
 import type { MessageParam, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { Context } from "hono";
+import { ToolCallTracker } from "./utils/toolCallTracker";
 import { stream } from "hono/streaming";
 import { parseToolArguments, validateToolSchema, safeJSONParse, validateOpenAIToolCall } from "./utils/toolValidation";
 import { ToolTransformationError, ErrorCode } from "./errors/types";
@@ -131,11 +132,31 @@ function detectProviderType(apiBaseUrl: string): 'anthropic' | 'openrouter' | 'o
 function convertAnthropicSchemaToOpenAI(schema: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
+  // Preserve validation constraints that OpenAI doesn't support
+  const constraintFields = [
+    'minLength', 'maxLength', 'pattern', 'format',
+    'minItems', 'maxItems', 'minimum', 'maximum',
+    'exclusiveMinimum', 'exclusiveMaximum',
+    'additionalProperties', '$schema'
+  ];
+
+  const preservedConstraints: Record<string, unknown> = {};
+  for (const field of constraintFields) {
+    if (field in schema) {
+      preservedConstraints[field] = schema[field];
+    }
+  }
+
   // OpenAI-supported core fields
   if (schema.type !== undefined) result.type = schema.type;
   if (schema.description !== undefined) result.description = schema.description;
   if (schema.enum !== undefined) result.enum = schema.enum;
   if (schema.required !== undefined) result.required = schema.required;
+
+  // Add preserved constraints if any exist
+  if (Object.keys(preservedConstraints).length > 0) {
+    result['x-anthropic-validation'] = preservedConstraints;
+  }
 
   // Recursively convert properties
   if (schema.properties && typeof schema.properties === 'object') {
@@ -387,7 +408,12 @@ function openAIChunkToAnthropic(chunk: string, debugMode = false): string {
 /**
  * Transform OpenAI response to Anthropic format
  */
-function openAIToAnthropic(response: OpenAIResponse, debugMode = false): Record<string, unknown> {
+function openAIToAnthropic(
+  response: OpenAIResponse,
+  debugMode = false,
+  tracker?: InstanceType<typeof import('./utils/toolCallTracker').ToolCallTracker>,
+  originalTools?: Array<{ name: string; input_schema: Record<string, unknown> }>
+): Record<string, unknown> {
   const choice = response.choices?.[0];
   if (!choice) return response as unknown as Record<string, unknown>;
 
@@ -407,12 +433,23 @@ function openAIToAnthropic(response: OpenAIResponse, debugMode = false): Record<
     for (const toolCall of choice.message.tool_calls) {
       // Validate tool call structure
       if (!validateOpenAIToolCall(toolCall, debugMode)) {
-        const errorData = {
-          toolCall: JSON.stringify(toolCall).slice(0, 200),
-        };
-        console.error('[ToolTransform] Invalid OpenAI tool call structure, skipping:', errorData);
-        debugLog('[ToolTransform] ERROR: Invalid OpenAI tool call structure, skipping:', errorData);
-        continue; // Skip invalid tool call
+        const toolName = toolCall?.function?.name || 'unknown';
+        const attemptCount = tracker?.getAttemptCount(toolName, toolCall?.function?.arguments || {}) || 1;
+
+        // Add error as text block (not "error" type - unsupported by Anthropic API)
+        const errorText = `[Tool Error] Tool call has invalid structure: missing required fields (type, function, or name). Tool: ${toolName}, Attempt: ${attemptCount}/${tracker?.getMaxRetries() || 3}`;
+
+        content.push({
+          type: "text",
+          text: errorText
+        });
+
+        if (debugMode) {
+          console.error('[ToolTransform] Added error text for invalid tool call structure:', errorText);
+          debugLog('[ToolTransform] Added error text for invalid tool call structure:', errorText);
+        }
+
+        continue; // Continue to next tool call
       }
 
       if (toolCall.type === 'function' && toolCall.function) {
@@ -433,20 +470,55 @@ function openAIToAnthropic(response: OpenAIResponse, debugMode = false): Record<
         const parseResult = parseToolArguments(toolCall.function.arguments, debugMode);
 
         if (!parseResult.isValid) {
-          // REJECT tool call with invalid arguments
-          const errorData = {
-            toolName: toolCall.function.name,
-            errors: parseResult.errors,
-            rawArgs: typeof toolCall.function.arguments === 'string' ?
-              (toolCall.function.arguments as string).slice(0, 100) :
-              typeof toolCall.function.arguments,
-          };
-          console.error('[ToolTransform] Failed to parse tool arguments:', errorData);
-          debugLog('[ToolTransform] ERROR: Failed to parse tool arguments:', errorData);
-          continue; // Skip tool call with unparseable arguments
+          // Get attempt count and schema constraints for error message
+          const attemptCount = tracker?.getAttemptCount(toolCall.function.name, toolCall.function.arguments) || 1;
+          const originalTool = originalTools?.find(t => t.name === toolCall.function?.name);
+          const schemaConstraints = originalTool?.input_schema?.['x-anthropic-validation'] as Record<string, unknown> | undefined;
+
+          // Add error as text block (not "error" type - unsupported by Anthropic API)
+          let errorText = `[Tool Error] Tool '${toolCall.function.name}' has invalid arguments:\n${parseResult.errors.join('\n')}\n\nAttempt: ${attemptCount}/${tracker?.getMaxRetries() || 3}`;
+
+          if (schemaConstraints && Object.keys(schemaConstraints).length > 0) {
+            errorText += `\n\nSchema constraints: ${JSON.stringify(schemaConstraints, null, 2)}`;
+          }
+
+          content.push({
+            type: "text",
+            text: errorText
+          });
+
+          if (debugMode) {
+            console.error('[ToolTransform] Added error text for invalid tool arguments:', errorText);
+            debugLog('[ToolTransform] Added error text for invalid tool arguments:', errorText);
+          }
+
+          continue; // Continue to next tool call
         }
 
         const toolInput = parseResult.arguments || {};
+
+        // Check loop detection before executing
+        if (tracker && !tracker.canExecute(toolCall.function.name, toolInput)) {
+          const attemptCount = tracker.getAttemptCount(toolCall.function.name, toolInput);
+
+          // Add error as text block (not "error" type - unsupported by Anthropic API)
+          const errorText = `[Tool Error] Tool '${toolCall.function.name}' exceeded maximum retry limit (${attemptCount} attempts). This indicates a persistent validation failure.\n\nSuggestion: Check the tool arguments against the schema requirements and fix the validation errors.`;
+
+          content.push({
+            type: "text",
+            text: errorText
+          });
+
+          if (debugMode) {
+            console.error('[ToolTransform] Tool call loop detected, added error text:', errorText);
+            debugLog('[ToolTransform] Tool call loop detected, added error text:', errorText);
+          }
+
+          continue; // Continue to next tool call
+        }
+
+        // Record successful parse attempt
+        tracker?.recordAttempt(toolCall.function.name, toolInput);
 
         if (debugMode) {
           const successData = {
@@ -509,6 +581,12 @@ export const createServer = (config: ServerConfig): Server => {
 
       // Enable debug mode if configured
       const debugMode = fullConfig.DEBUG_TOOL_TRANSFORM || false;
+
+      // Create tool call tracker for loop detection (max 3 retries)
+      const toolCallTracker = new ToolCallTracker(3);
+
+      // Store transformed tools for error messages (will be populated after transformation)
+      let transformedTools: Array<{ name: string; input_schema: Record<string, unknown> }> = [];
 
       // Apply Router logic if Router config exists
       let targetModel = body.model;
@@ -600,12 +678,21 @@ export const createServer = (config: ServerConfig): Server => {
         try {
           requestBody = anthropicToOpenAI(body, debugMode);
 
+          // Extract transformed tools for error messages (includes x-anthropic-validation)
+          if (requestBody.tools && Array.isArray(requestBody.tools)) {
+            transformedTools = requestBody.tools.map((tool: { type: string; function: { name: string; parameters: Record<string, unknown> } }) => ({
+              name: tool.function.name,
+              input_schema: tool.function.parameters,
+            }));
+          }
+
           if (debugMode) {
             server.logger.info?.('Transformed request:', {
               provider: providerType,
               model: modelName,
               hasTools: !!requestBody.tools,
               toolCount: requestBody.tools?.length || 0,
+              transformedToolsCount: transformedTools.length,
             });
           }
         } catch (error) {
@@ -747,6 +834,9 @@ export const createServer = (config: ServerConfig): Server => {
           const decoder = new TextDecoder();
           let buffer = ''; // SSE event buffer for incomplete chunks
 
+          // Buffer tool calls for validation (streaming only)
+          const streamingToolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map();
+
           try {
             while (true) {
               const { done, value } = await reader.read();
@@ -775,6 +865,71 @@ export const createServer = (config: ServerConfig): Server => {
                 // Add back the \n\n separator that was removed by split
                 const completeEvent = event + '\n\n';
 
+                // Parse chunk to check for tool calls and finish_reason
+                if (needsTransform && event.startsWith('data: ') && event !== 'data: [DONE]') {
+                  const jsonString = event.slice(6).trim();
+                  const data = safeJSONParse<{
+                    choices?: Array<{
+                      delta?: {
+                        tool_calls?: Array<{
+                          index?: number;
+                          id?: string;
+                          function?: { name?: string; arguments?: string };
+                        }>;
+                      };
+                      finish_reason?: string;
+                    }>;
+                  }>(jsonString, 'streaming_chunk');
+
+                  if (data?.choices?.[0]?.delta?.tool_calls) {
+                    // Buffer tool calls
+                    for (const toolCall of data.choices[0].delta.tool_calls) {
+                      const index = toolCall.index || 0;
+                      if (!streamingToolCalls.has(index)) {
+                        streamingToolCalls.set(index, {
+                          id: toolCall.id || `tool_${Date.now()}_${index}`,
+                          name: toolCall.function?.name || '',
+                          arguments: toolCall.function?.arguments || '',
+                        });
+                      } else {
+                        const buffered = streamingToolCalls.get(index)!;
+                        if (toolCall.function?.name) buffered.name = toolCall.function.name;
+                        if (toolCall.function?.arguments) buffered.arguments += toolCall.function.arguments;
+                      }
+                    }
+                  }
+
+                  // When finish_reason is tool_calls, validate all buffered tools
+                  if (data?.choices?.[0]?.finish_reason === 'tool_calls') {
+                    for (const [index, buffered] of streamingToolCalls.entries()) {
+                      const parseResult = parseToolArguments(buffered.arguments, debugMode);
+
+                      if (
+                        !parseResult.isValid ||
+                        (toolCallTracker && !toolCallTracker.canExecute(buffered.name, parseResult.arguments))
+                      ) {
+                        // Emit text content block with error message (not "error" event - unsupported)
+                        const attemptCount = toolCallTracker?.getAttemptCount(buffered.name, parseResult.arguments || {}) || 1;
+                        const errorText = !parseResult.isValid
+                          ? `[Tool Error] Tool '${buffered.name}' has invalid arguments: ${parseResult.errors.join('; ')}\n\nAttempt: ${attemptCount}/${toolCallTracker?.getMaxRetries() || 3}`
+                          : `[Tool Error] Tool '${buffered.name}' exceeded retry limit (${attemptCount} attempts)`;
+
+                        // Emit as text content block
+                        await stream.write(`event: content_block_start\ndata: {"type":"text","index":${index}}\n\n`);
+                        await stream.write(`event: content_block_delta\ndata: {"delta":{"type":"text_delta","text":${JSON.stringify(errorText)}}}\n\n`);
+
+                        if (debugMode) {
+                          console.error('[ToolTransform] Streaming: Added error text:', errorText);
+                          debugLog('[ToolTransform] Streaming: Added error text:', errorText);
+                        }
+                      } else {
+                        // Record successful attempt
+                        toolCallTracker?.recordAttempt(buffered.name, parseResult.arguments);
+                      }
+                    }
+                  }
+                }
+
                 // Transform OpenAI chunks to Anthropic format
                 const output = needsTransform ? openAIChunkToAnthropic(completeEvent, debugMode) : completeEvent;
                 if (output) await stream.write(output);
@@ -795,7 +950,7 @@ export const createServer = (config: ServerConfig): Server => {
 
       if (needsTransform) {
         try {
-          transformedData = openAIToAnthropic(responseData, debugMode);
+          transformedData = openAIToAnthropic(responseData, debugMode, toolCallTracker, transformedTools);
 
           if (debugMode) {
             server.logger.info?.('Transformed response:', {
