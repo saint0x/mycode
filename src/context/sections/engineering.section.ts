@@ -5,6 +5,7 @@
 
 import type { ContextSection, RequestAnalysis } from '../types';
 import { ContextPriority } from '../types';
+import { buildToolFormattingSection } from './toolFormatting.section';
 
 // ═══════════════════════════════════════════════════════════════════
 // SECTION BUILDERS
@@ -282,6 +283,146 @@ Hooks can intercept and modify requests/responses at 10 lifecycle points:
   };
 }
 
+function buildBehavioralFocusSection(): ContextSection {
+  const content = `<behavioral_focus>
+CRITICAL FOCUS REQUIREMENTS:
+
+TodoWrite Discipline:
+- Mark tasks as in_progress BEFORE starting work
+- NEVER batch task completions - mark each done individually
+- Exactly ONE task in_progress at a time (never multiple)
+- Mark completed IMMEDIATELY after finishing (no batching)
+
+Focus Maintenance:
+- If you find yourself exploring tangentially, return to the current task
+- Progress must be visible and incremental
+- Complete one task fully before starting the next
+- Remove stale/irrelevant tasks from list entirely
+
+Accountability:
+- Make progress visible to the user at each step
+- After git commit → run git status to verify
+- After file edit → explain what changed
+- After complex operation → confirm success
+</behavioral_focus>`;
+
+  return {
+    id: 'behavioral-focus',
+    name: 'Behavioral Focus',
+    content,
+    priority: ContextPriority.CRITICAL,
+    tokenCount: estimateTokens(content),
+    category: 'engineering',
+  };
+}
+
+function buildScopeDisciplineSection(): ContextSection {
+  const content = `<scope_discipline>
+STRICT SCOPE CONSTRAINTS:
+
+NEVER Do These:
+- Propose changes to code you haven't read
+- Add features not explicitly requested
+- Refactor surrounding code unless asked
+- Add "improvements" beyond the task scope
+- Create unnecessary abstractions or helpers
+- Add comments/docstrings to code you didn't change
+- Anticipate hypothetical future requirements
+
+ALWAYS Do These:
+- Read code before proposing changes
+- Stay focused on the specific task requested
+- Use specialized tools (Read, Edit, Write, Glob, Grep)
+- Verify operations complete successfully
+
+Principle: 3 similar lines is better than a premature abstraction.
+The minimum viable complexity is preferred over clever solutions.
+</scope_discipline>`;
+
+  return {
+    id: 'scope-discipline',
+    name: 'Scope Discipline',
+    content,
+    priority: ContextPriority.HIGH,
+    tokenCount: estimateTokens(content),
+    category: 'engineering',
+  };
+}
+
+function buildToolUsagePolicySection(): ContextSection {
+  const content = `<tool_usage_policy>
+TOOL SELECTION RULES:
+
+Specialized Tools (ALWAYS use these):
+- Read instead of cat/head/tail
+- Edit instead of sed/awk
+- Write instead of echo/heredoc
+- Glob/Grep instead of find/grep bash commands
+
+Bash Reserved For:
+- Git operations (git status, git diff, git log, git commit, git push)
+- Package management (npm, pip, cargo, etc.)
+- Docker operations
+- Terminal-specific commands
+
+NEVER Use Bash For:
+- File reading (use Read tool)
+- File editing (use Edit tool)
+- File writing (use Write tool)
+- File searching (use Glob/Grep tools)
+- Communication with user (output text directly, not echo)
+
+Execution Strategy:
+- Parallel tool calls when independent operations
+- Sequential (&&) when operations depend on each other
+- Never use newlines to separate commands (use && or separate calls)
+</tool_usage_policy>`;
+
+  return {
+    id: 'tool-usage-policy',
+    name: 'Tool Usage Policy',
+    content,
+    priority: ContextPriority.HIGH,
+    tokenCount: estimateTokens(content),
+    category: 'engineering',
+  };
+}
+
+function buildProfessionalObjectivitySection(): ContextSection {
+  const content = `<communication_style>
+COMMUNICATION STANDARDS:
+
+Professional Objectivity:
+- Prioritize technical accuracy over emotional validation
+- Avoid phrases like "You're absolutely right!" or excessive praise
+- Facts first, validation second
+- Disagree when necessary - honesty is more valuable than false agreement
+- Objective guidance and respectful correction over false agreement
+
+Output Format:
+- Short, concise responses optimized for CLI display
+- Use GitHub-flavored markdown for formatting
+- Monospace font rendering (avoid fancy formatting)
+- Never use emojis unless explicitly requested by user
+- Direct, clear communication without unnecessary verbosity
+
+Tone:
+- Professional but approachable
+- Technically precise
+- Helpful without being patronizing
+- Focus on solving the problem, not validating the user
+</communication_style>`;
+
+  return {
+    id: 'professional-objectivity',
+    name: 'Professional Objectivity',
+    content,
+    priority: ContextPriority.MEDIUM,
+    tokenCount: estimateTokens(content),
+    category: 'engineering',
+  };
+}
+
 function buildTaskSpecificSection(taskType: RequestAnalysis['taskType']): ContextSection | null {
   const enhancements: Record<string, string> = {
     code: `<task_engineering type="implementation">
@@ -366,6 +507,14 @@ When reviewing code:
 const CACHED_CORE_SECTION = buildCorePrinciplesSection();
 const CACHED_TOOL_SECTION = buildToolGuidelinesSection();
 const CACHED_SYSTEM_SECTION = buildSystemFeaturesSection();
+
+// Behavioral guardrails (NEW - based on Claude Code patterns)
+const CACHED_TOOL_FORMATTING = buildToolFormattingSection();  // CRITICAL: Prevents invalid tool parameters
+const CACHED_BEHAVIORAL_FOCUS = buildBehavioralFocusSection();
+const CACHED_SCOPE_DISCIPLINE = buildScopeDisciplineSection();
+const CACHED_TOOL_USAGE_POLICY = buildToolUsagePolicySection();
+const CACHED_PROFESSIONAL_OBJECTIVITY = buildProfessionalObjectivitySection();
+
 const CACHED_TASK_SECTIONS: Record<string, ContextSection | null> = {
   code: buildTaskSpecificSection('code'),
   debug: buildTaskSpecificSection('debug'),
@@ -380,19 +529,50 @@ const CACHED_TASK_SECTIONS: Record<string, ContextSection | null> = {
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════
 
+export interface BehavioralPatternsConfig {
+  antiAloofness?: boolean;       // TodoWrite discipline, focus enforcement
+  scopeEnforcement?: boolean;    // Prevent over-engineering
+  toolDiscipline?: boolean;      // Use Read/Edit/Write, not bash
+  professionalTone?: boolean;    // Objective, concise communication
+}
+
 export function buildEngineeringSections(
   analysis: RequestAnalysis,
-  config?: { enabled?: boolean }
+  config?: {
+    enabled?: boolean;
+    behavioralPatterns?: BehavioralPatternsConfig;
+  }
 ): ContextSection[] {
   if (config?.enabled === false) {
     return [];
   }
 
   const sections: ContextSection[] = [
+    CACHED_TOOL_FORMATTING,  // CRITICAL: Always include to prevent invalid tool parameters
     CACHED_CORE_SECTION,
     CACHED_TOOL_SECTION,
     CACHED_SYSTEM_SECTION,
   ];
+
+  // Add behavioral pattern sections (enabled by default)
+  const patterns = config?.behavioralPatterns ?? {};
+  const antiAloofness = patterns.antiAloofness ?? true;
+  const scopeEnforcement = patterns.scopeEnforcement ?? true;
+  const toolDiscipline = patterns.toolDiscipline ?? true;
+  const professionalTone = patterns.professionalTone ?? true;
+
+  if (antiAloofness) {
+    sections.push(CACHED_BEHAVIORAL_FOCUS);
+  }
+  if (scopeEnforcement) {
+    sections.push(CACHED_SCOPE_DISCIPLINE);
+  }
+  if (toolDiscipline) {
+    sections.push(CACHED_TOOL_USAGE_POLICY);
+  }
+  if (professionalTone) {
+    sections.push(CACHED_PROFESSIONAL_OBJECTIVITY);
+  }
 
   // Add task-specific section if available
   const taskSection = CACHED_TASK_SECTIONS[analysis.taskType];

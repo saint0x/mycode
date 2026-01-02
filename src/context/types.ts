@@ -25,10 +25,13 @@ export interface ContextSection {
 export interface RequestAnalysis {
   taskType: 'code' | 'debug' | 'explain' | 'refactor' | 'test' | 'review' | 'general';
   complexity: 'simple' | 'moderate' | 'complex';
+  complexityScore: number;  // 0-100 scale for more nuanced complexity assessment
   requiresMemory: boolean;
   requiresProjectContext: boolean;
   keywords: string[];
   entities: string[];
+  explorationRisk: boolean; // High risk of tangential exploration (keywords: go through, explore, tell me about)
+  taskCount: number;        // Number of tasks detected in user message (for TodoWrite guidance)
 }
 
 export interface ContextBuildResult {
@@ -41,6 +44,14 @@ export interface ContextBuildResult {
   errors?: string[];
 }
 
+export interface BehavioralPatternsConfig {
+  antiAloofness?: boolean;       // TodoWrite discipline, focus enforcement
+  scopeEnforcement?: boolean;    // Prevent over-engineering
+  toolDiscipline?: boolean;      // Use Read/Edit/Write, not bash
+  professionalTone?: boolean;    // Objective, concise communication
+  taskCompletion?: boolean;      // Progressive verification requirements
+}
+
 export interface ContextBuilderConfig {
   maxTokens: number;
   reserveTokensForResponse: number;
@@ -48,5 +59,6 @@ export interface ContextBuilderConfig {
   enableProjectContext: boolean;
   enableEmphasis: boolean;
   enableEngineering?: boolean;
+  behavioralPatterns?: BehavioralPatternsConfig;  // NEW: Fine-grained behavioral controls
   debugMode: boolean;
 }

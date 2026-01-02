@@ -61,10 +61,13 @@ export class DynamicContextBuilder {
       analysis = {
         taskType: 'general',
         complexity: 'moderate',
+        complexityScore: 50,
         requiresMemory: true,
         requiresProjectContext: true,
         keywords: [],
         entities: [],
+        explorationRisk: false,
+        taskCount: 0,
       };
     }
 
@@ -115,7 +118,8 @@ export class DynamicContextBuilder {
     if (this.config.enableEngineering !== false) {
       try {
         const engineeringSections = buildEngineeringSections(analysis, {
-          enabled: this.config.enableEngineering
+          enabled: this.config.enableEngineering,
+          behavioralPatterns: this.config.behavioralPatterns
         });
         sections.push(...engineeringSections);
       } catch (error) {
@@ -124,6 +128,18 @@ export class DynamicContextBuilder {
         if (this.config.debugMode) {
           console.error('[Context Builder]', errorMsg);
         }
+      }
+    }
+
+    // Debug section (if enabled)
+    if (this.config.debugMode) {
+      try {
+        const debugSection = this.buildDebugSection(analysis);
+        sections.push(debugSection);
+      } catch (error) {
+        const errorMsg = `Debug section error: ${error instanceof Error ? error.message : String(error)}`;
+        this.buildErrors.push(errorMsg);
+        console.error('[Context Builder]', errorMsg);
       }
     }
 
@@ -184,12 +200,24 @@ export class DynamicContextBuilder {
     const totalTokens = this.estimateSystemTokens(enhancedSystem);
 
     if (this.config.debugMode) {
-      console.log('[Context Builder]', {
-        taskType: analysis.taskType,
-        complexity: analysis.complexity,
-        sections: included.map(s => s.name),
-        trimmed: trimmed.map(s => s.name),
-        totalTokens,
+      console.log('[Context Builder] Build Complete:', {
+        analysis: {
+          taskType: analysis.taskType,
+          complexity: analysis.complexity,
+          complexityScore: analysis.complexityScore,
+          explorationRisk: analysis.explorationRisk,
+          taskCount: analysis.taskCount,
+        },
+        sections: {
+          included: included.map(s => `${s.name} (${s.priority})`),
+          trimmed: trimmed.map(s => `${s.name} (${s.priority})`),
+          total: sections.length,
+        },
+        tokens: {
+          total: totalTokens,
+          available: availableTokens,
+          used: included.reduce((sum, s) => sum + s.tokenCount, 0),
+        },
         errors: this.buildErrors.length > 0 ? this.buildErrors : undefined,
       });
     }
@@ -220,13 +248,20 @@ export class DynamicContextBuilder {
       ? lastUserMessage.content
       : '';
 
+    const taskType = this.detectTaskType(content);
+    const complexityScore = this.calculateComplexityScore(content, request.messages.length);
+    const complexity = complexityScore > 66 ? 'complex' : complexityScore > 33 ? 'moderate' : 'simple';
+
     return {
-      taskType: this.detectTaskType(content),
-      complexity: this.detectComplexity(content, request.messages.length),
+      taskType,
+      complexity,
+      complexityScore,
       requiresMemory: true,
       requiresProjectContext: true,
       keywords: this.extractKeywords(content),
       entities: this.extractEntities(content),
+      explorationRisk: this.detectExplorationRisk(content),
+      taskCount: this.detectTaskCount(content),
     };
   }
 
@@ -255,14 +290,83 @@ export class DynamicContextBuilder {
     return 'general';
   }
 
-  private detectComplexity(content: string, messageCount: number): RequestAnalysis['complexity'] {
-    if (content.length > 500 || messageCount > 10) {
-      return 'complex';
-    }
-    if (content.length > 200 || messageCount > 5) {
-      return 'moderate';
-    }
-    return 'simple';
+  private calculateComplexityScore(content: string, messageCount: number): number {
+    let score = 0;
+
+    // Length factor (0-30 points)
+    if (content.length > 1000) score += 30;
+    else if (content.length > 500) score += 20;
+    else if (content.length > 200) score += 10;
+    else if (content.length > 50) score += 5;
+
+    // Message count factor (0-20 points)
+    if (messageCount > 20) score += 20;
+    else if (messageCount > 10) score += 15;
+    else if (messageCount > 5) score += 10;
+    else if (messageCount > 2) score += 5;
+
+    // File mentions factor (0-20 points)
+    const fileMatches = content.match(/[\w\-\/]+\.\w+/g);
+    const fileCount = fileMatches ? fileMatches.length : 0;
+    if (fileCount > 5) score += 20;
+    else if (fileCount > 3) score += 15;
+    else if (fileCount > 1) score += 10;
+    else if (fileCount > 0) score += 5;
+
+    // Technical concepts factor (0-15 points)
+    const techKeywords = ['architecture', 'refactor', 'design', 'pattern', 'system', 'algorithm'];
+    const techMatches = techKeywords.filter(kw => content.toLowerCase().includes(kw)).length;
+    score += Math.min(techMatches * 5, 15);
+
+    // Multi-step indicator factor (0-15 points)
+    const steps = content.match(/\d+\./g) || content.match(/-\s/g);
+    const stepCount = steps ? steps.length : 0;
+    if (stepCount > 5) score += 15;
+    else if (stepCount > 3) score += 10;
+    else if (stepCount > 1) score += 5;
+
+    return Math.min(score, 100); // Cap at 100
+  }
+
+  private detectExplorationRisk(content: string): boolean {
+    const lower = content.toLowerCase();
+    const explorationPhrases = [
+      'go through',
+      'explore',
+      'tell me about',
+      'walk me through',
+      'show me',
+      'give me an overview',
+      'explain this',
+      'what does this do',
+      'how does this work'
+    ];
+
+    return explorationPhrases.some(phrase => lower.includes(phrase));
+  }
+
+  private detectTaskCount(content: string): number {
+    // Count numbered lists (1., 2., 3., etc.)
+    const numberedMatches = content.match(/\d+\./g);
+    const numberedCount = numberedMatches ? numberedMatches.length : 0;
+
+    // Count bulleted lists (-, *, etc.)
+    const bulletMatches = content.match(/^[\s]*[-*]\s/gm);
+    const bulletCount = bulletMatches ? bulletMatches.length : 0;
+
+    // Count comma-separated imperatives
+    const sentences = content.split(/[.!?;]/);
+    const imperatives = sentences.filter(s => {
+      const trimmed = s.trim().toLowerCase();
+      return trimmed.startsWith('and ') ||
+             trimmed.startsWith('then ') ||
+             trimmed.startsWith('also ') ||
+             trimmed.startsWith('next ');
+    });
+    const imperativeCount = imperatives.length;
+
+    // Return the maximum count (most likely to represent actual task count)
+    return Math.max(numberedCount, bulletCount, imperativeCount, 0);
   }
 
   private extractKeywords(content: string): string[] {
@@ -295,6 +399,40 @@ export class DynamicContextBuilder {
     if (nameMatches) entities.push(...nameMatches.slice(0, 5));
 
     return [...new Set(entities)];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DEBUG SECTION BUILDER
+  // ═══════════════════════════════════════════════════════════════════
+
+  private buildDebugSection(analysis: RequestAnalysis): ContextSection {
+    const content = `
+<debug_context>
+REQUEST ANALYSIS:
+- Task Type: ${analysis.taskType}
+- Complexity: ${analysis.complexity} (score: ${analysis.complexityScore}/100)
+- Exploration Risk: ${analysis.explorationRisk ? 'HIGH - Stay focused!' : 'LOW'}
+- Task Count: ${analysis.taskCount} ${analysis.taskCount > 1 ? '- Use TodoWrite!' : ''}
+- Requires Memory: ${analysis.requiresMemory}
+- Keywords: ${analysis.keywords.join(', ') || '(none)'}
+- Entities: ${analysis.entities.join(', ') || '(none)'}
+
+BEHAVIORAL REMINDERS:
+- If task count > 1: Create TodoWrite list IMMEDIATELY
+- If exploration risk HIGH: Extra focus on scope boundaries
+- If complexity HIGH: Break into smaller subtasks
+- Always mark tasks in_progress BEFORE starting, completed IMMEDIATELY after finishing
+</debug_context>
+    `.trim();
+
+    return {
+      id: 'debug-context',
+      name: 'Debug Context',
+      category: 'system',
+      priority: ContextPriority.CRITICAL,
+      content,
+      tokenCount: Math.ceil(content.length / 4),
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -356,31 +494,16 @@ export class DynamicContextBuilder {
   ): string {
     const parts: string[] = [];
 
-    // Add memory sections first (highest priority context)
-    const memorySections = sections.filter(s => s.category === 'memory');
-    for (const section of memorySections) {
+    // Sort sections by priority (highest first) for assembly
+    // This ensures CRITICAL sections appear before HIGH, etc.
+    const sortedSections = [...sections].sort((a, b) => b.priority - a.priority);
+
+    // Add all sections in priority order
+    for (const section of sortedSections) {
       parts.push(section.content);
     }
 
-    // Add instruction sections
-    const instructionSections = sections.filter(s => s.category === 'instruction');
-    for (const section of instructionSections) {
-      parts.push(section.content);
-    }
-
-    // Add emphasis sections
-    const emphasisSections = sections.filter(s => s.category === 'emphasis');
-    for (const section of emphasisSections) {
-      parts.push(section.content);
-    }
-
-    // Add engineering sections
-    const engineeringSections = sections.filter(s => s.category === 'engineering');
-    for (const section of engineeringSections) {
-      parts.push(section.content);
-    }
-
-    // Add original system prompt
+    // Add original system prompt last (so our behavioral patterns take precedence)
     if (typeof originalSystem === 'string') {
       parts.push(originalSystem);
     } else if (Array.isArray(originalSystem)) {

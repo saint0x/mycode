@@ -14,10 +14,7 @@ import { ContextSection, ContextPriority } from '../types';
  * enforce incremental progress visibility.
  */
 export function buildTaskCompletionSection(): ContextSection {
-  return {
-    category: 'instruction',
-    priority: ContextPriority.HIGH,
-    content: `
+  const content = `
 <task_completion_discipline>
 TASK MANAGEMENT REQUIREMENTS:
 
@@ -57,7 +54,14 @@ User: "What does this function do?"
 → Don't use TodoWrite (informational only)
 → Just answer the question
 </task_completion_discipline>
-    `.trim(),
-    tokenEstimate: 380
+    `.trim();
+
+  return {
+    id: 'task-completion',
+    name: 'Task Completion Discipline',
+    category: 'instruction',
+    priority: ContextPriority.HIGH,
+    content,
+    tokenCount: Math.ceil(content.length / 4)
   };
 }

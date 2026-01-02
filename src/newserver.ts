@@ -24,6 +24,7 @@ import { parseToolArguments, validateToolSchema, safeJSONParse, validateOpenAITo
 import { ToolTransformationError, ErrorCode } from "./errors/types";
 import { executeWithRetry, isRateLimitError, isNetworkError } from "./errors/utils";
 import { appendFileSync } from "fs";
+import { getContextBuilder } from "./context";
 
 // Debug logger that writes to file (works even when stdio is /dev/null)
 function debugLog(message: string, data?: unknown): void {
@@ -664,6 +665,42 @@ export const createServer = (config: ServerConfig): Server => {
 
       if (!providerConfig) {
         return c.json({ error: "No provider configured" }, 400);
+      }
+
+      // Build enhanced context with behavioral patterns
+      try {
+        const contextBuilder = getContextBuilder({
+          maxTokens: 12000,
+          reserveTokensForResponse: 8000,
+          enableMemory: true,
+          enableProjectContext: true,
+          enableEmphasis: true,
+          enableEngineering: true,
+          debugMode: debugMode,
+        });
+
+        const buildResult = await contextBuilder.build(body.system, {
+          messages: body.messages || [],
+          tools: body.tools,
+        });
+
+        // Replace system prompt with enhanced version
+        body.system = buildResult.systemPrompt;
+
+        if (debugMode) {
+          debugLog('[Context Builder] Enhanced system prompt:', {
+            totalTokens: buildResult.totalTokens,
+            sectionsIncluded: buildResult.sections.length,
+            sectionsTrimmed: buildResult.trimmedSections.length,
+            analysis: buildResult.analysis,
+            errors: buildResult.errors,
+          });
+        }
+      } catch (error) {
+        // Non-fatal: log error and continue with original system prompt
+        debugLog('[Context Builder] Failed to build context, using original system:', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       // Update body with actual model name
