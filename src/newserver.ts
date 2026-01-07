@@ -371,26 +371,30 @@ function openAIChunkToAnthropic(chunk: string, debugMode = false): string {
 
     let output = '';
 
-    // Handle tool calls in streaming
+    // Handle tool calls in streaming - ANTHROPIC SSE FORMAT
+    // See: https://platform.claude.com/docs/en/build-with-claude/streaming
     if (delta && delta.tool_calls && delta.tool_calls.length > 0) {
       for (const toolCall of delta.tool_calls) {
         if (toolCall.function) {
-          // Tool call start
+          const toolIndex = toolCall.index || 0;
+          const toolId = toolCall.id || `toolu_${Date.now()}_${toolIndex}`;
+
+          // Tool call start - Anthropic format requires content_block wrapper
           if (toolCall.function.name) {
-            output += `event: content_block_start\ndata: {"type":"tool_use","index":${toolCall.index || 0},"id":"${toolCall.id || 'tool_' + Date.now()}","name":"${toolCall.function.name}"}\n\n`;
+            output += `event: content_block_start\ndata: {"type":"content_block_start","index":${toolIndex},"content_block":{"type":"tool_use","id":"${toolId}","name":"${toolCall.function.name}","input":{}}}\n\n`;
           }
-          // Tool call arguments delta
+          // Tool call arguments delta - Anthropic format requires type and index
           if (toolCall.function.arguments) {
-            output += `event: content_block_delta\ndata: {"delta":{"type":"input_json_delta","partial_json":${JSON.stringify(toolCall.function.arguments)}}}\n\n`;
+            output += `event: content_block_delta\ndata: {"type":"content_block_delta","index":${toolIndex},"delta":{"type":"input_json_delta","partial_json":${JSON.stringify(toolCall.function.arguments)}}}\n\n`;
           }
         }
       }
       return output;
     }
 
-    // Handle text content
+    // Handle text content - Anthropic format requires type and index
     if (delta && delta.content) {
-      return `event: content_block_delta\ndata: {"delta":{"type":"text_delta","text":${JSON.stringify(delta.content)}}}\n\n`;
+      return `event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":${JSON.stringify(delta.content)}}}\n\n`;
     }
 
     // Handle finish reason
@@ -951,9 +955,9 @@ export const createServer = (config: ServerConfig): Server => {
                           ? `[Tool Error] Tool '${buffered.name}' has invalid arguments: ${parseResult.errors.join('; ')}\n\nAttempt: ${attemptCount}/${toolCallTracker?.getMaxRetries() || 3}`
                           : `[Tool Error] Tool '${buffered.name}' exceeded retry limit (${attemptCount} attempts)`;
 
-                        // Emit as text content block
-                        await stream.write(`event: content_block_start\ndata: {"type":"text","index":${index}}\n\n`);
-                        await stream.write(`event: content_block_delta\ndata: {"delta":{"type":"text_delta","text":${JSON.stringify(errorText)}}}\n\n`);
+                        // Emit as text content block - Anthropic SSE format
+                        await stream.write(`event: content_block_start\ndata: {"type":"content_block_start","index":${index},"content_block":{"type":"text","text":""}}\n\n`);
+                        await stream.write(`event: content_block_delta\ndata: {"type":"content_block_delta","index":${index},"delta":{"type":"text_delta","text":${JSON.stringify(errorText)}}}\n\n`);
 
                         if (debugMode) {
                           console.error('[ToolTransform] Streaming: Added error text:', errorText);
