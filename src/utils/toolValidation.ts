@@ -266,13 +266,13 @@ export function parseToolArguments(
 
   // Handle string arguments (need JSON parsing)
   if (typeof args === 'string') {
-    // Empty string is invalid
+    // Empty string means no arguments - treat as empty object (valid for tools with no required params)
+    // This is critical for streaming where tools with no params may have empty argument strings
     if (args.trim().length === 0) {
-      const error = 'Tool arguments string is empty';
       if (debugMode) {
-        console.error('[ToolValidation]', error);
+        console.log('[ToolValidation] Empty arguments string, treating as empty object {}');
       }
-      return { isValid: false, errors: [error] };
+      return { isValid: true, errors: [], arguments: {} };
     }
 
     try {
